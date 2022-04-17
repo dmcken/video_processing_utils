@@ -79,7 +79,6 @@ def processDir():
         'ogm', 'rm', 'rmvb', 'vob', 'webm', 'wmv', 'xvid',
     ]
 
-
     count = 0
     for filename in os.listdir('.'):
         try:
@@ -145,12 +144,14 @@ def processDir():
             progH.wait()
             
             if progH.returncode:
-                raise subprocess.CalledProcessError(progH.returncode, callParams[0])
+                raise subprocess.CalledProcessError(progH.returncode,
+                    callParams[0])
 
             oldSize = os.path.getsize(filename)
             newSize = os.path.getsize(newFileName)
 
-            logging.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".format(oldSize, newSize, newSize - oldSize))
+            logging.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".\
+                format(oldSize, newSize, newSize - oldSize))
 
             os.remove(filename)
             os.remove(filename + u'.log')
