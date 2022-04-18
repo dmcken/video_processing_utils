@@ -4,6 +4,10 @@ Bulk re-encode my mp4 h264 videos to h265
 
 'encoded_library_name': 'x264'
 
+
+Notes:
+- H.265 patent situation is still odd, ffmpeg encode of AV1 is moving at 1-2
+  frames/sec which would take forever.
 '''
 
 
