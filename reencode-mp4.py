@@ -102,6 +102,7 @@ def processDir():
 
             callParams = [
                 'ffmpeg', '-y',
+                '-hwaccel', 'cuda',
                 '-i', filename,
                 #'-vf', "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                 '-c', 'copy',        # Catch all for an extra streams, just copy
@@ -110,7 +111,7 @@ def processDir():
                 '-map', '0',         # Map any other streams (e.g. subtitles)
                 newFileName,
             ]
-            logging.info(u"Starting: {0}".format(filename))
+            logger.info(u"Starting: {0}".format(filename))
             
             progH = subprocess.Popen(
                 callParams,
@@ -119,7 +120,7 @@ def processDir():
                 stderr=subprocess.STDOUT,
             )
 
-            logging.info(u"Started: {0}".format(progH.pid))
+            logger.info(u"Started: {0}".format(progH.pid))
             processData = psutil.Process(progH.pid)
 
             processIdle = 0
@@ -150,7 +151,7 @@ def processDir():
             oldSize = os.path.getsize(filename)
             newSize = os.path.getsize(newFileName)
 
-            logging.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".\
+            logger.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".\
                 format(oldSize, newSize, newSize - oldSize))
 
             os.remove(filename)
@@ -159,22 +160,22 @@ def processDir():
             if tmp_file:
                 os.rename(newFileName, filename)
 
-            logging.info(u"Completed: {0}".format(newFileName))
+            logger.info(u"Completed: {0}".format(newFileName))
             #time.sleep(5)
             count += 1
             if count > 500:
                 break
         except subprocess.CalledProcessError as e:
-            logging.error(u"Got a issue from ffmpeg: {0}".format(e.returncode))
+            logger.error(u"Got a issue from ffmpeg: {0}".format(e.returncode))
         except Exception as e:
-            logging.error(u"An exception occurred: {0}, {1}".format(e.__class__, e))
+            logger.error(u"An exception occurred: {0}, {1}".format(e.__class__, e))
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            logging.error(repr(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+            logger.error(repr(traceback.format_exception(exc_type, exc_value, exc_traceback)))
 
 def printDir():
 
     for filename in os.listdir('.'):
-        logging.error(u"File found: {0}".format(filename))
+        logger.error(u"File found: {0}".format(filename))
 
 if __name__ == '__main__':
 
