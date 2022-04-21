@@ -14,6 +14,7 @@ Notes:
 
 
 import logging
+import multiprocessing
 import os
 import pprint
 import psutil
@@ -26,6 +27,7 @@ import time
 import traceback
 
 logger = logging.getLogger(__name__)
+lock = multiprocessing.Lock()
 
 
 def determine_new_filename(fileprefix, ext=u'mp4'):
@@ -79,13 +81,24 @@ def is_h265(filename):
 def processDir():
 
     accepted_extensions = [
-        '3gp', 'asf', 'avi', 'flv', 'm2v', 'm4v', 'mov', 'mp4', 'mpeg', 'mpg',
-        'ogm', 'rm', 'rmvb', 'vob', 'webm', 'wmv', 'xvid',
+        '3gp',
+        'asf', 'avi',
+        'flv',
+        'm2v', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg',
+        'ogm',
+        'rm', 'rmvb',
+        'vob',
+        'webm', 'wmv',
+        'xvid',
     ]
+    default_output_extension = 'mp4'
 
     count = 0
     for filename in os.listdir('.'):
         try:
+            if not os.path.exists(filename):
+                continue
+
             if os.path.isdir(filename):
                 continue
 
@@ -102,7 +115,12 @@ def processDir():
                 logger.info("File is already h265")
                 continue
 
-            newFileName, tmp_file = determine_new_filename(fileprefix, 'mp4')
+            if exten == 'mkv':
+                output_extension = 'mkv'
+            else: # Default
+                output_extension = default_output_extension
+
+            newFileName, tmp_file = determine_new_filename(fileprefix, output_extension)
 
             callParams = [
                 'ffmpeg', '-y',
@@ -117,12 +135,16 @@ def processDir():
             ]
             logger.info(u"Starting: {0}".format(filename))
             
+            lock.acquire()
+            psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS) # lower priority
             progH = subprocess.Popen(
                 callParams,
                 stdin=subprocess.PIPE,
                 stdout=open(filename + u'.log','w'),
                 stderr=subprocess.STDOUT,
             )
+            psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS) # normal priority
+            lock.release()
 
             logger.info(u"Started: {0}".format(progH.pid))
             processData = psutil.Process(progH.pid)
@@ -190,7 +212,7 @@ if __name__ == '__main__':
 
     dirs_to_process = map(lambda x: x[0], os.walk('.'))
     for curr_dir in dirs_to_process:
-        logging.error("Processing directory: {0}".format(curr_dir))
+        logger.error("Processing directory: {0}".format(curr_dir))
         os.chdir(curr_dir)
         # printDir()
         processDir()
