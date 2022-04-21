@@ -11,8 +11,6 @@ Notes:
 '''
 
 
-
-
 import logging
 import multiprocessing
 import os
@@ -45,10 +43,10 @@ def determine_new_filename(fileprefix, ext=u'mp4'):
     i = 1
     while True:
         newFileName = u"{0}-{1}.{2}".format(fileprefix, i, ext)
-        
+
         if not os.path.exists(newFileName):
             return (newFileName, True)
-        
+
         i += 1
 
 
@@ -62,20 +60,19 @@ def is_h265(filename):
 
     '''
 
-    
     media_info = pymediainfo.MediaInfo.parse(filename)
     all_track_data = list(map(lambda x: x.to_data(), media_info.tracks))
     video_tracks = filter(lambda x: x['track_type'] == 'Video', all_track_data)
-    #pprint.pprint(list(video_tracks))
+    # pprint.pprint(list(video_tracks))
     video_formats = list(map(lambda x: x['codec_id'], video_tracks))
 
-    logger.info("Video formats for '{0}' => {1}".format(filename, video_formats))
+    logger.info("Video formats for '{0}' => {1}".format(
+        filename, video_formats))
 
     if 'hev1' in video_formats:
         return True
     else:
         return False
-
 
 
 def processDir():
@@ -117,10 +114,11 @@ def processDir():
 
             if exten == 'mkv':
                 output_extension = 'mkv'
-            else: # Default
+            else:  # Default
                 output_extension = default_output_extension
 
-            newFileName, tmp_file = determine_new_filename(fileprefix, output_extension)
+            newFileName, tmp_file = determine_new_filename(
+                fileprefix, output_extension)
 
             callParams = [
                 'ffmpeg', '-y',
@@ -134,16 +132,16 @@ def processDir():
                 newFileName,
             ]
             logger.info(u"Starting: {0}".format(filename))
-            
+
             lock.acquire()
-            psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS) # lower priority
+            psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)  # lower priority
             progH = subprocess.Popen(
                 callParams,
                 stdin=subprocess.PIPE,
-                stdout=open(filename + u'.log','w'),
+                stdout=open(filename + u'.log', 'w'),
                 stderr=subprocess.STDOUT,
             )
-            psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS) # normal priority
+            psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)  # normal priority
             lock.release()
 
             logger.info(u"Started: {0}".format(progH.pid))
@@ -152,33 +150,33 @@ def processDir():
             processIdle = 0
             while progH.poll() is None:
                 try:
-                    if processData.cpu_percent(interval = 1.0) < 2.0:
+                    if processData.cpu_percent(interval=1.0) < 2.0:
                         processIdle += 1
                     else:
                         processIdle = 0
-                        
+
                     if processIdle > 20:
                         logging.error(u"Terminating due to inactivity")
                         progH.kill()
                         time.sleep(2)
                         os.remove(newFileName)
                         raise subprocess.CalledProcessError(-1, callParams[0])
-                    
+
                     time.sleep(1)
                 except psutil.NoSuchProcess:
                     break
 
             progH.wait()
-            
+
             if progH.returncode:
                 raise subprocess.CalledProcessError(progH.returncode,
-                    callParams[0])
+                                                    callParams[0])
 
             oldSize = os.path.getsize(filename)
             newSize = os.path.getsize(newFileName)
 
-            logger.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".\
-                format(oldSize, newSize, newSize - oldSize))
+            logger.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".
+                        format(oldSize, newSize, newSize - oldSize))
 
             os.remove(filename)
             os.remove(filename + u'.log')
@@ -187,26 +185,30 @@ def processDir():
                 os.rename(newFileName, filename)
 
             logger.info(u"Completed: {0}".format(newFileName))
-            #time.sleep(5)
+            # time.sleep(5)
             count += 1
             if count > 500:
                 break
         except subprocess.CalledProcessError as e:
             logger.error(u"Got a issue from ffmpeg: {0}".format(e.returncode))
         except Exception as e:
-            logger.error(u"An exception occurred: {0}, {1}".format(e.__class__, e))
+            logger.error(
+                u"An exception occurred: {0}, {1}".format(e.__class__, e))
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            logger.error(repr(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+            logger.error(repr(traceback.format_exception(
+                exc_type, exc_value, exc_traceback)))
+
 
 def printDir():
 
     for filename in os.listdir('.'):
         logger.error(u"File found: {0}".format(filename))
 
+
 if __name__ == '__main__':
 
     logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
-    logging.basicConfig(level = logging.DEBUG, format = logging.BASIC_FORMAT)
+    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
 
     root_dir = os.getcwd()
 
@@ -217,5 +219,3 @@ if __name__ == '__main__':
         # printDir()
         processDir()
         os.chdir(root_dir)
-        
-
