@@ -133,7 +133,7 @@ def process_dir():
             logger.info(f"Starting: {filename}")
 
             lock.acquire()
-            psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)  # lower priority
+            psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)  # lower priority
             prog_h = subprocess.Popen(
                 call_params,
                 stdin=subprocess.PIPE,
