@@ -10,42 +10,41 @@ Notes:
   frames/sec which would take forever.
 '''
 
-
+# Built in
 import logging
 import multiprocessing
 import os
-import pprint
-import psutil
-import pymediainfo
-import queue
 import subprocess
 import sys
-import threading
 import time
 import traceback
+
+# Externals
+import psutil
+import pymediainfo
 
 logger = logging.getLogger(__name__)
 lock = multiprocessing.Lock()
 
 
-def determine_new_filename(fileprefix, ext=u'mp4'):
+def determine_new_filename(fileprefix, ext='mp4'):
     '''
     fileprefix
     ext
     '''
 
-    newFileName = u"{0}.{1}".format(fileprefix, ext)
+    new_file_name = f"{fileprefix}.{ext}"
 
-    if not os.path.exists(newFileName):
-        return (newFileName, False)
+    if not os.path.exists(new_file_name):
+        return (new_file_name, False)
 
     # The file exists so we need to try an incrementing number
     i = 1
     while True:
-        newFileName = u"{0}-{1}.{2}".format(fileprefix, i, ext)
+        new_file_name = f"{fileprefix}-{i}.{ext}"
 
-        if not os.path.exists(newFileName):
-            return (newFileName, True)
+        if not os.path.exists(new_file_name):
+            return (new_file_name, True)
 
         i += 1
 
@@ -66,16 +65,16 @@ def is_h265(filename):
     # pprint.pprint(list(video_tracks))
     video_formats = list(map(lambda x: x['codec_id'], video_tracks))
 
-    logger.info("Video formats for '{0}' => {1}".format(
-        filename, video_formats))
+    logger.info(f"Video formats for '{filename}' => {video_formats}")
 
     if 'hev1' in video_formats:
         return True
-    else:
-        return False
+
+    # No h265 was found
+    return False
 
 
-def processDir():
+def process_dir():
 
     accepted_extensions = [
         '3gp',
@@ -100,7 +99,7 @@ def processDir():
                 continue
 
             try:
-                fileprefix, exten = filename.rsplit(u'.', 1)
+                fileprefix, exten = filename.rsplit('.', 1)
             except ValueError:
                 continue
 
@@ -117,10 +116,10 @@ def processDir():
             else:  # Default
                 output_extension = default_output_extension
 
-            newFileName, tmp_file = determine_new_filename(
+            new_file_name, tmp_file = determine_new_filename(
                 fileprefix, output_extension)
 
-            callParams = [
+            call_params = [
                 'ffmpeg', '-y',
                 '-hwaccel', 'cuda',
                 '-i', filename,
@@ -129,80 +128,79 @@ def processDir():
                 '-c:v', 'libx265',   # Video to H265
                 '-c:a', 'aac',       # Audio to AAC
                 '-map', '0',         # Map any other streams (e.g. subtitles)
-                newFileName,
+                new_file_name,
             ]
-            logger.info(u"Starting: {0}".format(filename))
+            logger.info(f"Starting: {filename}")
 
             lock.acquire()
             psutil.Process().nice(psutil.BELOW_NORMAL_PRIORITY_CLASS)  # lower priority
-            progH = subprocess.Popen(
-                callParams,
+            prog_h = subprocess.Popen(
+                call_params,
                 stdin=subprocess.PIPE,
-                stdout=open(filename + u'.log', 'w'),
+                stdout=open(filename + '.log', 'w'),
                 stderr=subprocess.STDOUT,
             )
             psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)  # normal priority
             lock.release()
 
-            logger.info(u"Started: {0}".format(progH.pid))
-            processData = psutil.Process(progH.pid)
+            logger.info(f"Started: {prog_h.pid}")
+            process_data = psutil.Process(prog_h.pid)
 
-            processIdle = 0
-            while progH.poll() is None:
+            process_idle = 0
+            while prog_h.poll() is None:
                 try:
-                    if processData.cpu_percent(interval=1.0) < 2.0:
-                        processIdle += 1
+                    if process_data.cpu_percent(interval=1.0) < 2.0:
+                        process_idle += 1
                     else:
-                        processIdle = 0
+                        process_idle = 0
 
-                    if processIdle > 20:
-                        logging.error(u"Terminating due to inactivity")
-                        progH.kill()
+                    if process_idle > 20:
+                        logging.error("Terminating due to inactivity")
+                        prog_h.kill()
                         time.sleep(2)
-                        os.remove(newFileName)
-                        raise subprocess.CalledProcessError(-1, callParams[0])
+                        os.remove(new_file_name)
+                        raise subprocess.CalledProcessError(-1, call_params[0])
 
                     time.sleep(1)
                 except psutil.NoSuchProcess:
                     break
 
-            progH.wait()
+            prog_h.wait()
 
-            if progH.returncode:
-                raise subprocess.CalledProcessError(progH.returncode,
-                                                    callParams[0])
+            if prog_h.returncode:
+                raise subprocess.CalledProcessError(prog_h.returncode,
+                                                    call_params[0])
 
-            oldSize = os.path.getsize(filename)
-            newSize = os.path.getsize(newFileName)
+            size_old = os.path.getsize(filename)
+            size_new = os.path.getsize(new_file_name)
 
-            logger.info(u"Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".
-                        format(oldSize, newSize, newSize - oldSize))
+            logger.info("Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".
+                        format(size_old, size_new, size_new - size_old))
 
             os.remove(filename)
-            os.remove(filename + u'.log')
+            os.remove(filename + '.log')
 
             if tmp_file:
-                os.rename(newFileName, filename)
+                os.rename(new_file_name, filename)
 
-            logger.info(u"Completed: {0}".format(newFileName))
+            logger.info(f"Completed: {new_file_name}")
             # time.sleep(5)
             count += 1
             if count > 500:
                 break
-        except subprocess.CalledProcessError as e:
-            logger.error(u"Got a issue from ffmpeg: {0}".format(e.returncode))
-        except Exception as e:
-            logger.error(
-                u"An exception occurred: {0}, {1}".format(e.__class__, e))
+        except subprocess.CalledProcessError as exc:
+            logger.error(f"Got a issue from ffmpeg: {exc.returncode}")
+        except Exception as exc:
+            logger.error(f"An exception occurred: {exc.__class__}, {exc}")
             exc_type, exc_value, exc_traceback = sys.exc_info()
             logger.error(repr(traceback.format_exception(
                 exc_type, exc_value, exc_traceback)))
 
 
-def printDir():
+def print_dir():
 
     for filename in os.listdir('.'):
-        logger.error(u"File found: {0}".format(filename))
+        logger.error(f"File found: {filename}")
 
 
 if __name__ == '__main__':
@@ -214,8 +212,8 @@ if __name__ == '__main__':
 
     dirs_to_process = map(lambda x: x[0], os.walk('.'))
     for curr_dir in dirs_to_process:
-        logger.error("Processing directory: {0}".format(curr_dir))
+        logger.error(f"Processing directory: {curr_dir}")
         os.chdir(curr_dir)
-        # printDir()
-        processDir()
+        # print_dir()
+        process_dir()
         os.chdir(root_dir)
