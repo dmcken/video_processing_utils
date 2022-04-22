@@ -187,10 +187,6 @@ def process_dir():
                 os.rename(new_file_name, filename)
 
             logger.info(f"Completed: {new_file_name}")
-            # time.sleep(5)
-            count += 1
-            if count > 10:
-                break
         except subprocess.CalledProcessError as exc:
             logger.error(f"Got a issue from ffmpeg: {exc.returncode}")
         except Exception as exc:
