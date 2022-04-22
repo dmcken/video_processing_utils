@@ -76,6 +76,7 @@ def is_h265(filename):
 
 def process_dir():
 
+    dir_space_difference = 0
     accepted_extensions = [
         '3gp',
         'asf', 'avi',
@@ -130,7 +131,7 @@ def process_dir():
                 '-map', '0',         # Map any other streams (e.g. subtitles)
                 new_file_name,
             ]
-            logger.info(f"Starting: {filename}")
+            logger.info(f"Transcoding: {filename}")
 
             lock.acquire()
             psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)  # lower priority
@@ -143,7 +144,7 @@ def process_dir():
             psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)  # normal priority
             lock.release()
 
-            logger.info(f"Started: {prog_h.pid}")
+            #logger.info(f"Started: {prog_h.pid}")
             process_data = psutil.Process(prog_h.pid)
 
             process_idle = 0
@@ -174,6 +175,8 @@ def process_dir():
             size_old = os.path.getsize(filename)
             size_new = os.path.getsize(new_file_name)
 
+            dir_space_difference += size_new - size_old
+
             logger.info("Old size '{0:,}', New size: '{1:,}' -> Difference: {2:,}".
                         format(size_old, size_new, size_new - size_old))
 
@@ -186,7 +189,7 @@ def process_dir():
             logger.info(f"Completed: {new_file_name}")
             # time.sleep(5)
             count += 1
-            if count > 500:
+            if count > 10:
                 break
         except subprocess.CalledProcessError as exc:
             logger.error(f"Got a issue from ffmpeg: {exc.returncode}")
@@ -195,6 +198,9 @@ def process_dir():
             exc_type, exc_value, exc_traceback = sys.exc_info()
             logger.error(repr(traceback.format_exception(
                 exc_type, exc_value, exc_traceback)))
+
+    logger.info("Dir difference: {0:,}".format(dir_space_difference))
+    return dir_space_difference
 
 
 def print_dir():
@@ -210,10 +216,14 @@ if __name__ == '__main__':
 
     root_dir = os.getcwd()
 
+    total_difference = 0
     dirs_to_process = map(lambda x: x[0], os.walk('.'))
     for curr_dir in dirs_to_process:
         logger.error(f"Processing directory: {curr_dir}")
         os.chdir(curr_dir)
         # print_dir()
-        process_dir()
+        diff = process_dir()
+        total_difference += diff
         os.chdir(root_dir)
+
+    logger.info("Total difference: {0}".format(total_difference))
