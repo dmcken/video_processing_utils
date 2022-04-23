@@ -11,9 +11,11 @@ Notes:
 '''
 
 # Built in
+import argparse
 import logging
 import multiprocessing
 import os
+import pathlib
 import subprocess
 import sys
 import time
@@ -199,6 +201,8 @@ def process_file(filename):
         logger.info(f"Completed: {new_file_name}")
 
         return file_difference
+    except SkipFile:
+        raise
     except Exception as exc:
         logger.error(f"An exception occurred processing file '{filename}': {exc.__class__}, {exc}")
         exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -206,13 +210,11 @@ def process_file(filename):
             exc_type, exc_value, exc_traceback)))
         raise exc
 
-def process_dir(dir_to_process):
+def process_dir():
     '''
     '''
 
     dir_space_difference = 0
-
-    os.chdir(dir_to_process)
 
     for filename in os.listdir('.'):
         try:
@@ -221,7 +223,7 @@ def process_dir(dir_to_process):
         except SkipFile:
             pass
 
-    logger.info("Dir difference: {0:,}".format(dir_space_difference))
+    logger.info(f"Dir difference: {dir_space_difference:,}")
     return dir_space_difference
 
 def print_dir():
@@ -229,20 +231,40 @@ def print_dir():
     for filename in os.listdir('.'):
         logger.error(f"File found: {filename}")
 
-
-if __name__ == '__main__':
-
-    BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
-
+def process_recursive():
+    '''
+    '''
     root_dir = os.getcwd()
 
     total_difference = 0
     dirs_to_process = map(lambda x: x[0], os.walk('.'))
     for curr_dir in dirs_to_process:
         logger.error(f"Processing directory: {curr_dir}")
-        dir_diff = process_dir(curr_dir)
+        os.chdir(curr_dir)
+        dir_diff = process_dir()
         total_difference += dir_diff
         os.chdir(root_dir)
 
-    logger.info("Total difference: {0:,}".format(total_difference))
+    logger.info(f"Total difference: {total_difference:,}")
+
+if __name__ == '__main__':
+    import pprint
+    logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
+    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
+
+    # add argument handling
+    parser = argparse.ArgumentParser(description='Bulk converter')
+    parser.add_argument('--path', type=pathlib.Path, help='Path to process', default='.')
+    parser.add_argument('-r', '--recursive', action='store_true')
+    parser.set_defaults(recursive=False)
+
+    args = parser.parse_args()
+
+    pprint.pprint(args)
+
+    #os.chdir(args.path)
+
+    if args.recursive:
+        process_recursive()
+    else:
+        process_dir()
