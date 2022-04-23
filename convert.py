@@ -84,10 +84,10 @@ def is_h265(filename):
     # pprint.pprint(list(video_tracks))
     video_formats = list(map(lambda x: x['codec_id'], video_tracks))
 
-    logger.info(f"Video formats for '{filename}' => {video_formats}")
-
     if 'hev1' in video_formats:
         return True
+
+    logger.info(f"Video formats for '{filename}' => {video_formats}")
 
     # No h265 was found
     return False
@@ -95,27 +95,28 @@ def is_h265(filename):
 def transcode_file(filename, new_file_name):
     '''
     '''
-    try:
-        call_params = [
-            'ffmpeg', '-y',
-            '-hwaccel', 'cuda',
-            '-i', filename,
-            #'-vf', "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-            '-c', 'copy',        # Catch all for an extra streams, just copy
-            '-c:v', 'libx265',   # Video to H265
-            '-c:a', 'aac',       # Audio to AAC
-            '-map', '0',         # Map any other streams (e.g. subtitles)
-            new_file_name,
-        ]
+    call_params = [
+        'ffmpeg', '-y',
+        '-hwaccel', 'cuda',
+        '-i', filename,
+        #'-vf', "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        '-c', 'copy',        # Catch all for an extra streams, just copy
+        '-c:v', 'libx265',   # Video to H265
+        '-c:a', 'aac',       # Audio to AAC
+        '-map', '0',         # Map any other streams (e.g. subtitles)
+        new_file_name,
+    ]
 
-        logger.info(f"Transcoding: {filename}")
+    logger.info(f"Transcoding: {filename}")
+
+    with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
 
         lock.acquire()
         psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
         prog_h = subprocess.Popen(
             call_params,
             stdin=subprocess.PIPE,
-            stdout=open(filename + '.log', 'w', encoding="utf8"),
+            stdout=f_stdout,
             stderr=subprocess.STDOUT,
         )
         psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)
@@ -146,10 +147,8 @@ def transcode_file(filename, new_file_name):
         prog_h.wait()
 
         if prog_h.returncode:
-            raise subprocess.CalledProcessError(prog_h.returncode,
-                                                call_params[0])
-    except subprocess.CalledProcessError as exc:
-        logger.error(f"Got a issue from ffmpeg: {exc.returncode}")
+            logger.error(f"Got a issue from ffmpeg: {prog_h.returncode}")
+
 
 def process_file(filename):
     '''
@@ -165,7 +164,7 @@ def process_file(filename):
         try:
             fileprefix, exten = filename.rsplit('.', 1)
         except ValueError:
-            raise SkipFile("Invalid file format")
+            raise SkipFile("Invalid file format") from None
 
         if exten.lower() not in ACCEPTED_EXTENSIONS:
             raise SkipFile("Not a file to process")
@@ -227,6 +226,8 @@ def process_dir():
     return dir_space_difference
 
 def print_dir():
+    '''
+    '''
 
     for filename in os.listdir('.'):
         logger.error(f"File found: {filename}")
@@ -247,23 +248,33 @@ def process_recursive():
 
     logger.info(f"Total difference: {total_difference:,}")
 
-if __name__ == '__main__':
-    import pprint
-    logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
-
-    # add argument handling
+def parse_args():
+    '''
+    '''
     parser = argparse.ArgumentParser(description='Bulk converter')
-    parser.add_argument('--path', type=pathlib.Path, help='Path to process', default='.')
+    parser.add_argument(
+        '--path',
+        type=pathlib.Path,
+        help='Path to process',
+        default='.'
+    )
     parser.add_argument('-r', '--recursive', action='store_true')
     parser.set_defaults(recursive=False)
 
-    args = parser.parse_args()
+    prog_args = parser.parse_args()
 
-    pprint.pprint(args)
+    return prog_args
 
-    #os.chdir(args.path)
+if __name__ == '__main__':
+    logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
+    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
 
+    args = parse_args()
+
+    # Change to path specified
+    os.chdir(args.path)
+
+    # Recursive or just that directory
     if args.recursive:
         process_recursive()
     else:
