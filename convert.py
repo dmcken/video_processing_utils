@@ -84,7 +84,7 @@ def is_h265(filename):
     # pprint.pprint(list(video_tracks))
     video_formats = list(map(lambda x: x['codec_id'], video_tracks))
 
-    if 'hev1' in video_formats:
+    if 'hev1' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
         return True
 
     logger.info(f"Video formats for '{filename}' => {video_formats}")
@@ -112,14 +112,20 @@ def transcode_file(filename, new_file_name):
     with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
 
         lock.acquire()
-        psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
+        try:
+            psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
+        except AttributeError:
+            psutil.Process().nice(10)
         prog_h = subprocess.Popen(
             call_params,
             stdin=subprocess.PIPE,
             stdout=f_stdout,
             stderr=subprocess.STDOUT,
         )
-        psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)
+        try:
+            psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)
+        except AttributeError:
+            psutil.Process().nice(0)
         lock.release()
 
         #logger.info(f"Started: {prog_h.pid}")
@@ -207,7 +213,7 @@ def process_file(filename):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         logger.error(repr(traceback.format_exception(
             exc_type, exc_value, exc_traceback)))
-        raise exc
+        raise SkipFile("Generic Error") from None
 
 def process_dir():
     '''
@@ -240,7 +246,7 @@ def process_recursive():
     total_difference = 0
     dirs_to_process = map(lambda x: x[0], os.walk('.'))
     for curr_dir in dirs_to_process:
-        logger.error(f"Processing directory: {curr_dir}")
+        logger.info(f"Processing directory: {curr_dir}")
         os.chdir(curr_dir)
         dir_diff = process_dir()
         total_difference += dir_diff
@@ -266,7 +272,8 @@ def parse_args():
     return prog_args
 
 if __name__ == '__main__':
-    logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
+    #logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
+    logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
 
     args = parse_args()
