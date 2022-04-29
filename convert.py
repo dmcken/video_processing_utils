@@ -20,6 +20,7 @@ import subprocess
 import sys
 import time
 import traceback
+import typing
 
 # Externals
 import psutil
@@ -48,7 +49,7 @@ class SkipFile(Exception):
 logger = logging.getLogger(__name__)
 lock = multiprocessing.Lock()
 
-def determine_new_filename(fileprefix, ext='mp4'):
+def determine_new_filename(fileprefix: str, ext: str='mp4') -> typing.Tuple[str,bool]:
     '''
     fileprefix
     ext
@@ -69,7 +70,7 @@ def determine_new_filename(fileprefix, ext='mp4'):
 
         i += 1
 
-def is_h265(filename):
+def is_h265(filename: str) -> bool:
     '''
     Determine if the file is in h265 format.
 
@@ -87,7 +88,7 @@ def is_h265(filename):
     if 'hev1' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
         return True
 
-    logger.info(f"Video formats for '{filename}' => {video_formats}")
+    logger.info(f"Formats in '{filename}' => {video_formats}")
 
     # No h265 was found
     return False
@@ -96,14 +97,15 @@ def transcode_file(filename, new_file_name):
     '''
     '''
     call_params = [
-        'ffmpeg', '-y',
+        'ffmpeg',   '-y',
         '-hwaccel', 'cuda',
-        '-i', filename,
-        #'-vf', "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        '-c', 'copy',        # Catch all for an extra streams, just copy
-        '-c:v', 'libx265',   # Video to H265
-        '-c:a', 'aac',       # Audio to AAC
-        '-map', '0',         # Map any other streams (e.g. subtitles)
+        '-i',       filename,
+        #'-vf',      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        # Catch-all for an extra streams, for those just copy
+        '-c',       'copy',
+        '-c:v',     'libx265',   # Video to H265
+        '-c:a',     'aac',       # Audio to AAC
+        '-map',     '0',         # Map any other streams (e.g. subtitles)
         new_file_name,
     ]
 
@@ -153,7 +155,7 @@ def transcode_file(filename, new_file_name):
         prog_h.wait()
 
         if prog_h.returncode:
-            logger.error(f"Got a issue from ffmpeg: {prog_h.returncode}")
+            raise RuntimeError(f"Got a issue from ffmpeg: {prog_h.returncode}")
 
 
 def process_file(filename):
