@@ -109,7 +109,7 @@ def transcode_file(filename, new_file_name):
         new_file_name,
     ]
 
-    logger.info(f"Transcoding: {filename}")
+    #logger.info(f"Transcoding: {filename}")
 
     with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
 
@@ -205,7 +205,7 @@ def process_file(filename):
         if tmp_file:
             os.rename(new_file_name, filename)
 
-        logger.info(f"Completed: {new_file_name}")
+        #logger.info(f"Completed: {new_file_name}")
 
         return file_difference
     except SkipFile:
