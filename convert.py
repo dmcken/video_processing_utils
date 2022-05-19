@@ -40,6 +40,17 @@ ACCEPTED_EXTENSIONS = [
 ]
 DEFAULT_OUTPUT_EXTENSION = 'mp4'
 
+if psutil.WINDOWS:
+    PRIORITY_LOWER  = psutil.IDLE_PRIORITY_CLASS
+    PRIORITY_NORMAL = psutil.NORMAL_PRIORITY_CLASS
+elif psutil.LINUX:
+    PRIORITY_LOWER = 10
+    PRIORITY_NORMAL = 0
+else:
+    print("Unsupported platform")
+    sys.exit(-1)
+
+
 class SkipFile(Exception):
     '''
     Exception thrown when we just want to skip a file processing
@@ -114,20 +125,14 @@ def transcode_file(filename, new_file_name):
     with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
 
         lock.acquire()
-        try:
-            psutil.Process().nice(psutil.IDLE_PRIORITY_CLASS)
-        except AttributeError:
-            psutil.Process().nice(10)
+        psutil.Process().nice(PRIORITY_LOWER)
         prog_h = subprocess.Popen(
             call_params,
             stdin=subprocess.PIPE,
             stdout=f_stdout,
             stderr=subprocess.STDOUT,
         )
-        try:
-            psutil.Process().nice(psutil.NORMAL_PRIORITY_CLASS)
-        except AttributeError:
-            psutil.Process().nice(0)
+        psutil.Process().nice(PRIORITY_NORMAL)
         lock.release()
 
         #logger.info(f"Started: {prog_h.pid}")
