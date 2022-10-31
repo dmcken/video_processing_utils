@@ -8,6 +8,9 @@ Bulk re-encode my mp4 h264 videos to h265
 Notes:
 - H.265 patent situation is still odd, ffmpeg encode of AV1 is moving at 1-2
   frames/sec which would take forever.
+
+TODO:
+- Investigate using ffmpeg-python rather than pymediainfo + subprocess
 '''
 
 # Built in
@@ -34,6 +37,7 @@ ACCEPTED_EXTENSIONS = [
     'm2v', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg',
     'ogm',
     'rm', 'rmvb',
+    'ts',
     'vob',
     'webm', 'wmv',
     'xvid',
@@ -94,7 +98,13 @@ def is_h265(filename: str) -> bool:
     all_track_data = list(map(lambda x: x.to_data(), media_info.tracks))
     video_tracks = filter(lambda x: x['track_type'] == 'Video', all_track_data)
     # pprint.pprint(list(video_tracks))
-    video_formats = list(map(lambda x: x['codec_id'], video_tracks))
+
+    video_formats = []
+    for curr_video_track in video_tracks:
+        try:
+            video_formats.append(curr_video_track['codec_id'])
+        except KeyError:
+            video_formats.append(curr_video_track['commercial_name'])
 
     if 'hev1' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
         return True
@@ -109,14 +119,15 @@ def transcode_file(filename, new_file_name):
     '''
     call_params = [
         'ffmpeg',   '-y',
-        '-hwaccel', 'cuda',
+        #'-hwaccel', 'cuda',
         '-i',       filename,
-        #'-vf',      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        '-vf',      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         # Catch-all for an extra streams, for those just copy
         '-c',       'copy',
         '-c:v',     'libx265',   # Video to H265
         '-c:a',     'aac',       # Audio to AAC
-        '-map',     '0',         # Map any other streams (e.g. subtitles)
+        '-c:s',     'copy',      # Copy the subtitles
+        #'-map',     '0',         # Map any other streams (e.g. subtitles)
         new_file_name,
     ]
 
@@ -202,7 +213,7 @@ def process_file(filename):
         file_difference = size_new - size_old
 
         logger.info(f"Size old:'{size_old:,}', new: '{size_new:,}' -> " +
-            f"Diff: {file_difference:,}")
+            f"Diff: {file_difference:,} ({file_difference / size_old * 100:.2f}%)")
 
         os.remove(filename)
         os.remove(filename + '.log')
