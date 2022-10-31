@@ -9,4 +9,3 @@ disable=logging-fstring-interpolation
 
 [REPORTS]
 output-format=text
-files-output=no
