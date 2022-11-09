@@ -149,6 +149,9 @@ def transcode_file(filename, new_file_name):
         elif psutil.LINUX:
             # PermissionError is thrown when attempting to return to the normal
             # priority that is being done above on windows.
+            # We are since python 3.3 able to just set the priority of the ffmpeg
+            # process directly so this will likely become the default going
+            # forward.
             prog_h = subprocess.Popen(
                 call_params,
                 stdin=subprocess.PIPE,
