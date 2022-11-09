@@ -127,7 +127,7 @@ def transcode_file(filename, new_file_name):
         '-c:v',     'libx265',   # Video to H265
         '-c:a',     'aac',       # Audio to AAC
         '-c:s',     'copy',      # Copy the subtitles
-        #'-map',     '0',         # Map any other streams (e.g. subtitles)
+        '-map',     '0',         # Map any other streams (e.g. subtitles)
         new_file_name,
     ]
 
