@@ -135,16 +135,30 @@ def transcode_file(filename, new_file_name):
 
     with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
 
-        lock.acquire()
-        psutil.Process().nice(PRIORITY_LOWER)
-        prog_h = subprocess.Popen(
-            call_params,
-            stdin=subprocess.PIPE,
-            stdout=f_stdout,
-            stderr=subprocess.STDOUT,
-        )
-        psutil.Process().nice(PRIORITY_NORMAL)
-        lock.release()
+        if psutil.WINDOWS:
+            lock.acquire()
+            psutil.Process().nice(PRIORITY_LOWER)
+            prog_h = subprocess.Popen(
+                call_params,
+                stdin=subprocess.PIPE,
+                stdout=f_stdout,
+                stderr=subprocess.STDOUT,
+            )
+            psutil.Process().nice(PRIORITY_NORMAL)
+            lock.release()
+        elif psutil.LINUX:
+            # PermissionError is thrown when attempting to return to the normal
+            # priority that is being done above on windows.
+            prog_h = subprocess.Popen(
+                call_params,
+                stdin=subprocess.PIPE,
+                stdout=f_stdout,
+                stderr=subprocess.STDOUT,
+            )
+            os.setpriority(os.PRIO_PROCESS, prog_h.pid, PRIORITY_LOWER)
+        else:
+            print("Unsupported platform")
+            sys.exit(-1)
 
         #logger.info(f"Started: {prog_h.pid}")
         process_data = psutil.Process(prog_h.pid)
