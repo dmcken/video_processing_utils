@@ -203,6 +203,9 @@ def process_file(filename):
         if os.path.isdir(filename):
             raise SkipFile("Is a directory")
 
+        if os.stat(filename).st_size == 0:
+            raise SkipFile("Is zero size")
+
         try:
             fileprefix, exten = filename.rsplit('.', 1)
         except ValueError:
@@ -242,7 +245,8 @@ def process_file(filename):
         #logger.info(f"Completed: {new_file_name}")
 
         return file_difference
-    except SkipFile:
+    except SkipFile as exc:
+        #logger.info(f"{filename} -> Skipped -> {exc}")
         raise
     except Exception as exc:
         logger.error(f"An exception occurred processing file '{filename}': {exc.__class__}, {exc}")
