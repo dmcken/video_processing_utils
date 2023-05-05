@@ -115,7 +115,7 @@ def is_h265(filename: str) -> bool:
     return False
 
 def transcode_file(filename, new_file_name):
-    '''
+    '''Handle transcoding a single file.
     '''
     call_params = [
         'ffmpeg',   '-y',
@@ -287,7 +287,11 @@ def process_recursive():
     dirs_to_process = sorted(map(lambda x: x[0], os.walk('.')))
     for curr_dir in dirs_to_process:
         logger.info(f"Processing directory: {curr_dir}")
-        os.chdir(curr_dir)
+        try:
+            os.chdir(curr_dir)
+        except FileNotFoundError:
+            logger.error(f"Folder '{curr_dir}' no longer present, skipping.")
+            continue
         dir_diff = process_dir()
         total_difference += dir_diff
         os.chdir(root_dir)
