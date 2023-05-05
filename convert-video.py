@@ -119,7 +119,7 @@ def transcode_file(filename, new_file_name):
     '''
     call_params = [
         'ffmpeg',   '-y',
-        #'-hwaccel', 'cuda',
+        # '-hwaccel', # 'cuda',
         '-i',       filename,
         '-vf',      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         # Catch-all for an extra streams, for those just copy
@@ -132,7 +132,7 @@ def transcode_file(filename, new_file_name):
         new_file_name,
     ]
 
-    #logger.info(f"Transcoding: {filename}")
+    # logger.info(f"Transcoding: {filename} with command line\n{call_params}")
 
     with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
 
@@ -261,7 +261,7 @@ def process_dir():
 
     dir_space_difference = 0
 
-    for filename in os.listdir('.'):
+    for filename in sorted(os.listdir('.')):
         try:
             file_difference = process_file(filename)
             dir_space_difference += file_difference
@@ -284,7 +284,7 @@ def process_recursive():
     root_dir = os.getcwd()
 
     total_difference = 0
-    dirs_to_process = map(lambda x: x[0], os.walk('.'))
+    dirs_to_process = sorted(map(lambda x: x[0], os.walk('.')))
     for curr_dir in dirs_to_process:
         logger.info(f"Processing directory: {curr_dir}")
         os.chdir(curr_dir)
