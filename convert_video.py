@@ -11,6 +11,9 @@ Notes:
 
 TODO:
 - Investigate using ffmpeg-python rather than pymediainfo + subprocess
+- Handle specific errors:
+  - Mov not present
+    - https://stackoverflow.com/questions/18294912/ffmpeg-generate-moov-atom
 '''
 
 # Built in
