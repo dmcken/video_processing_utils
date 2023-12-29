@@ -127,7 +127,8 @@ def transcode_file(filename, new_file_name):
         '-c:v',     'libx265',   # Video to H265
         '-c:a',     'aac',       # Audio to AAC
         '-c:s',     'copy',      # Copy the subtitles
-        '-dn',                   # Ignore the data streams (most seem to be "ffmpeg GPAC ISO Hint Handler")
+        '-dn',                   # Ignore the data streams (most seem to be
+                                 #  "ffmpeg GPAC ISO Hint Handler")
         '-map',     '0',         # Map any other streams (e.g. subtitles)
         new_file_name,
     ]
@@ -247,7 +248,7 @@ def process_file(filename):
         return file_difference
     except SkipFile as exc:
         #logger.info(f"{filename} -> Skipped -> {exc}")
-        raise
+        raise exc
     except Exception as exc:
         logger.error(f"An exception occurred processing file '{filename}': {exc.__class__}, {exc}")
         exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -256,7 +257,7 @@ def process_file(filename):
         raise SkipFile("Generic Error") from None
 
 def process_dir():
-    '''
+    '''Process appropriate files in a directory.
     '''
 
     dir_space_difference = 0
@@ -265,21 +266,22 @@ def process_dir():
         try:
             file_difference = process_file(filename)
             dir_space_difference += file_difference
-        except SkipFile:
+        except SkipFile as exc:
+            # logger.error(f"Skipping {filename} for reason {exc}")
             pass
 
     logger.info(f"Dir difference: {dir_space_difference:,}")
     return dir_space_difference
 
 def print_dir():
-    '''
+    '''Print all files in directory (placeholder handler function).
     '''
 
     for filename in os.listdir('.'):
         logger.error(f"File found: {filename}")
 
 def process_recursive():
-    '''
+    '''Process appropriate files in a directory recursively.
     '''
     root_dir = os.getcwd()
 
@@ -299,7 +301,7 @@ def process_recursive():
     logger.info(f"Total difference: {total_difference:,}")
 
 def parse_args():
-    '''
+    '''Parse arguments passed to application.
     '''
     parser = argparse.ArgumentParser(description='Bulk converter')
     parser.add_argument(
