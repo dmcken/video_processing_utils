@@ -5,6 +5,7 @@ General video processing utilities (mostly using ffmpeg)
 
 ### Prerequisites:
 * ffmpeg
+* libmediainfo-dev
 * pip
   * psutil
   * pymediainfo

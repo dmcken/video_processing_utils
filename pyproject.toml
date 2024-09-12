@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/video_processing_utils/__init__.py"
+
+[project]
+name="video-processing-utils"
+dynamic=["version"]
+authors = [
+  { name="David Mc Ken", email="david.mcken@codepro.guru" },
+]
+description="Video processing utilities"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+]
+dependencies = [
+    "python-dotenv",
+    "psutil",
+    "pymediainfo",
+]
+
+[project.urls]
+Homepage = "https://github.com/dmcken/video-processing-utils"
+Issues = "https://github.com/dmcken/video-processing-utils/issues"
+
+[project.scripts]
+merge-video = "concat_video.cli:main"

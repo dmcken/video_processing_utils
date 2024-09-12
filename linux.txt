@@ -1,3 +1,0 @@
-Ubuntu:
-apt install
-- libmediainfo-dev
