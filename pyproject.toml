@@ -5,8 +5,11 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 path = "src/video_processing_utils/__init__.py"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project]
-name="video-processing-utils"
+name="video_processing_utils"
 dynamic=["version"]
 authors = [
   { name="David Mc Ken", email="david.mcken@codepro.guru" },
@@ -30,4 +33,4 @@ Homepage = "https://github.com/dmcken/video-processing-utils"
 Issues = "https://github.com/dmcken/video-processing-utils/issues"
 
 [project.scripts]
-merge-video = "concat_video.cli:main"
+merge-video = "video_processing_utils.concat_video.cli:main"
