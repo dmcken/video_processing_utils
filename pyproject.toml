@@ -35,3 +35,4 @@ Issues = "https://github.com/dmcken/video_processing_utils/issues"
 
 [project.scripts]
 merge-video = "video_processing_utils.concat_video.cli:main"
+bulk-convert = "video_processing_utils.convert_video:main"
