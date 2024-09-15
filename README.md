@@ -4,8 +4,8 @@ General video processing utilities (mostly using ffmpeg)
 ## convert_video.py
 
 ### Prerequisites:
-* ffmpeg
-* libmediainfo-dev
+* ffmpeg + ffprobe (in case you end up installing manually).
+* libmediainfo-dev (being depreciated)
 * pip
   * psutil
   * pymediainfo
