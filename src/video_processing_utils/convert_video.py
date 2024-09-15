@@ -28,7 +28,8 @@ import time
 import traceback
 import typing
 
-# Externals
+# External imports
+import ffmpeg
 import psutil
 import pymediainfo
 
@@ -97,6 +98,7 @@ def is_h265(filename: str) -> bool:
 
 
     '''
+    # json.loads(ffmpeg.FFmpeg(executable="ffprobe").input('apx-sky324.mp4', print_format="json", show_streams=None, show_format=None, show_private_data=None).execute())
     media_info = pymediainfo.MediaInfo.parse(filename)
     all_track_data = list(map(lambda x: x.to_data(), media_info.tracks))
     video_tracks = filter(lambda x: x['track_type'] == 'Video', all_track_data)
@@ -320,7 +322,10 @@ def parse_args():
 
     return prog_args
 
-if __name__ == '__main__':
+
+def main() -> None:
+    """Main function
+    """
     #logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
     logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
@@ -335,3 +340,6 @@ if __name__ == '__main__':
         process_recursive()
     else:
         process_dir()
+
+if __name__ == '__main__':
+    main()
