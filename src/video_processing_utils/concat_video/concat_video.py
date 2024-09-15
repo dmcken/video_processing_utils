@@ -1,4 +1,17 @@
+'''Concatenate video functions
 
+
+
+
+References:
+https://trac.ffmpeg.org/wiki/Concatenate
+https://ffmpeg.org/ffmpeg-formats.html#Metadata-1
+
+- Chapters:
+https://www.caseyliss.com/2021/1/26/joining-files-keeping-chapters-using-ffmpeg
+https://gist.github.com/cliss/53136b2c69526eeed561a5517b23cefa
+
+'''
 # System imports
 import os
 import subprocess
@@ -10,7 +23,7 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
                           over_write=False, delete_input=False) -> None:
     """Concatenate two video files together using ffmpeg demuxer.
 
-    https://trac.ffmpeg.org/wiki/Concatenate    
+        
 
     build a file with lines in the following format:
     file '<input #1>.mp4'
