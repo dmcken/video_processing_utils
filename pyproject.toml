@@ -25,12 +25,13 @@ classifiers = [
 dependencies = [
     "python-dotenv",
     "psutil",
-    "pymediainfo",
+    "pymediainfo", # To depreciate
+    "python-ffmpeg",
 ]
 
 [project.urls]
-Homepage = "https://github.com/dmcken/video-processing-utils"
-Issues = "https://github.com/dmcken/video-processing-utils/issues"
+Homepage = "https://github.com/dmcken/video_processing_utils"
+Issues = "https://github.com/dmcken/video_processing_utils/issues"
 
 [project.scripts]
 merge-video = "video_processing_utils.concat_video.cli:main"
