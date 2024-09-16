@@ -36,3 +36,4 @@ Issues = "https://github.com/dmcken/video_processing_utils/issues"
 [project.scripts]
 vumerge = "video_processing_utils.concat_video.cli:main"
 vuconvert = "video_processing_utils.convert_video:main"
+vucontainer = "video_processing_utils.convert_container:process_dir"
