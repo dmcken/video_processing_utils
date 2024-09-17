@@ -14,11 +14,13 @@ Currently how to change a mkv to mp4
 
 # System imports
 import glob
+import logging
 import os
-import pprint
 
 # External imports
 import ffmpeg
+
+logger = logging.getLogger(__name__)
 
 def process_dir(base_path: str = '.') -> None:
     """_summary_
@@ -46,11 +48,9 @@ def process_dir(base_path: str = '.') -> None:
                 }
             )
 
-        # pprint.pprint(ffmpeg_run.arguments)
-
         @ffmpeg_run.on("progress")
         def on_progress(progress: ffmpeg.Progress) -> None:
-            print(f"{curr_file} => {progress}")
+            print(f"{curr_file} => {progress}", end="\r", flush=True)
 
         @ffmpeg_run.on("terminated")
         def on_terminated():
@@ -61,9 +61,15 @@ def process_dir(base_path: str = '.') -> None:
             print(f"Deleting: {curr_file}")
             os.remove(curr_file)
 
+        logger.debug(f"FFmpeg command line: {ffmpeg_run.arguments}")
+
         ffmpeg_run.execute()
 
         # break
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
     process_dir()
