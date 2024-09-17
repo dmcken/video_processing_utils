@@ -8,12 +8,9 @@ Underlying video utility functions.
 # System imports
 import json
 import logging
-import os
 import pathlib
 import pprint
-import subprocess
 import tempfile
-import time
 
 # External imports
 import ffmpeg
@@ -183,5 +180,9 @@ title={chapter_name}
 
         cmd.execute()
         print()
+
+        if delete_input:
+            # Delete the input files
+            pass
 
     return
