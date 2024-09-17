@@ -7,8 +7,10 @@ Underlying video utility functions.
 '''
 # System imports
 import json
+import logging
 import os
 import pathlib
+import pprint
 import subprocess
 import tempfile
 import time
@@ -16,7 +18,7 @@ import time
 # External imports
 import ffmpeg
 
-
+logger = logging.getLogger(__name__)
 
 def fetch_file_metadata(filename: str) -> str:
     """Fetch the raw metadata from a file.
@@ -117,7 +119,7 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
         metadata_output = fetch_file_metadata(input_files[0])
         media_data = fetch_file_data(input_files[0])
 
-        print(f"Metadata:\n{metadata_output}")
+        logger.debug(f"Media data:\n{pprint.pformat(media_data['streams'])}")
 
         file_chapter_start = 0
         # Create the concat input file
