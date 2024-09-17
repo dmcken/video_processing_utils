@@ -2,4 +2,4 @@
 
 __version__ = "0.0.2"
 
-from . import concat_video
+from .ffmpeg_utils import concat_ffmpeg_demuxer
