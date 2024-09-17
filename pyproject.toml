@@ -24,9 +24,9 @@ classifiers = [
 ]
 dependencies = [
     "python-dotenv",
-    "psutil",
-    "pymediainfo", # To depreciate
     "python-ffmpeg",
+    "pymediainfo", # To depreciate
+    "psutil",
 ]
 
 [project.urls]
