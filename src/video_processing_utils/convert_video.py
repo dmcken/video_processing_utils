@@ -18,6 +18,7 @@ TODO:
 
 # Built in
 import argparse
+import json
 import logging
 import multiprocessing
 import os
@@ -69,11 +70,16 @@ logger = logging.getLogger(__name__)
 lock = multiprocessing.Lock()
 
 def determine_new_filename(fileprefix: str, ext: str='mp4') -> typing.Tuple[str,bool]:
-    '''
-    fileprefix
-    ext
-    '''
+    """Determine output filename.
 
+    Args:
+        fileprefix (str): Prefix to use.
+        ext (str, optional): output extension. Defaults to 'mp4'.
+
+    Returns:
+        typing.Tuple[str,bool]: filename as index 0, index 1 will be True if this is a
+            temporary filename, False if this will be the final filename.
+    """
     new_file_name = f"{fileprefix}.{ext}"
 
     if not os.path.exists(new_file_name):
@@ -98,7 +104,15 @@ def is_h265(filename: str) -> bool:
 
 
     '''
-    # json.loads(ffmpeg.FFmpeg(executable="ffprobe").input('apx-sky324.mp4', print_format="json", show_streams=None, show_format=None, show_private_data=None).execute())
+    # json.loads(
+    #     ffmpeg.FFmpeg(executable="ffprobe").input(
+    #         '<filename>.mp4',
+    #         print_format="json",
+    #         show_streams=None,
+    #         show_format=None,
+    #         show_private_data=None
+    #     ).execute()
+    # )
     media_info = pymediainfo.MediaInfo.parse(filename)
     all_track_data = list(map(lambda x: x.to_data(), media_info.tracks))
     video_tracks = filter(lambda x: x['track_type'] == 'Video', all_track_data)
@@ -198,7 +212,7 @@ def transcode_file(filename, new_file_name):
             raise RuntimeError(f"Got a issue from ffmpeg: {prog_h.returncode}")
 
 
-def process_file(filename):
+def process_file(filename: str):
     '''
     Process a single file to h265
     '''
