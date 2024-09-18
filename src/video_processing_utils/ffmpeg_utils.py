@@ -103,7 +103,13 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
 
     Example:
     ```
+    import logging
     import video_processing_utils
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
     video_processing_utils.concat_ffmpeg_demuxer(['A.mp4','B.mp4'],'Out.mp4')
     ```
 
