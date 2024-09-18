@@ -8,6 +8,7 @@ import os
 import pprint
 
 # Local imports
+import video_processing_utils
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ def parse_cli() -> argparse.Namespace:
     if args.over_write is False and os.path.exists(args.output):
         parser.error(f"Output file '{args.output}' exists, aborting")
 
-    pprint.pprint(args)
+    logger.info(f"Parsed arguments: {pprint.pformat(args)}")
 
     return args
 
@@ -81,6 +82,12 @@ def main():
     '''Main entry point.
     '''
     args = parse_cli()
+    video_processing_utils.concat_ffmpeg_demuxer(
+        input_files=args.input,
+        output_file=args.output,
+        over_write=args.over_write,
+    )
+
 
 if __name__ == '__main__':
     main()
