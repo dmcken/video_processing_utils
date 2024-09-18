@@ -69,7 +69,7 @@ def fetch_file_data(filename: str) -> dict:
 
 
 def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
-                          over_write=False, delete_input=False) -> None:
+                          over_write=False, delete_input=False, print_progress=True) -> None:
     """Concatenate two video files together using ffmpeg demuxer.
 
 
@@ -101,6 +101,12 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
     https://superuser.com/questions/520510/combining-video-and-subtitle-files-as-one-video
 
 
+    Example:
+    ```
+    import video_processing_utils
+    video_processing_utils.concat_ffmpeg_demuxer(['A.mp4','B.mp4'],'Out.mp4')
+    ```
+
     Args:
         input (list[str]): _description_
         output (str): _description_
@@ -122,15 +128,36 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
         # Create the concat input file
         for curr_file in input_files:
             fp_filelist.write(f"file '{curr_file}'\n".encode('utf-8'))
+
+            # Check this file against the first file to ensure parameters match
+            # Possibly look to move this off to its own function.
             curr_file_media_data = fetch_file_data(curr_file)
             # Test media_data against the curr_file_media_data
+            fields_to_check = {
+                'video': ['codec_type', 'codec_name', 'height', 'width'],
+                'audio': ['codec_type', 'codec_name', 'channel_layout', 'sample_rate'],
+            }
+            for curr_stream in range(len(curr_file_media_data['streams'])):
+                stream_fields = fields_to_check[media_data['streams'][curr_stream]['codec_type']]
+                for curr_field in stream_fields:
+                    if media_data['streams'][curr_stream][curr_field] != \
+                        curr_file_media_data['streams'][curr_stream][curr_field]:
+                        logger.error(
+                            f"Field '{curr_field}' in stream {curr_stream} does " +
+                            f"not match in file {curr_file}: " +
+                            f"{media_data['streams'][curr_stream][curr_field]}" +
+                            " => " +
+                            f"{curr_file_media_data['streams'][curr_stream][curr_field]}"
+                        )
+                        # Change to raise an exception.
+                        return
 
             # Insert main chapter data
             file_chapter_end = round(
                     file_chapter_start + float(
                     curr_file_media_data['format']['duration']
                 ),
-                3
+                3,
             )
             chapter_name = pathlib.Path(curr_file_media_data['format']['filename']).stem
             metadata_output += f"""
@@ -140,7 +167,8 @@ START={int(file_chapter_start * 1000)}
 END={int(file_chapter_end * 1000)}
 title={chapter_name}
 """.encode()
-            # Copy the chapters from the file if present offset by the file_chapter_start
+            # Copy the chapters from the file if present.
+            # offset by the file_chapter_start
 
             file_chapter_start = file_chapter_end + 1
 
@@ -150,9 +178,6 @@ title={chapter_name}
         # Write the metadata file
         fp_metadata.write(metadata_output)
         fp_metadata.close()
-
-        # print(f"Metadata: {fp_metadata.name}")
-        # time.sleep(60)
 
         # Main concat call
         cmd = ffmpeg.FFmpeg()
@@ -174,15 +199,17 @@ title={chapter_name}
 
         @cmd.on("progress")
         def on_progress(progress: ffmpeg.Progress):
-            print(progress, end="\r", flush=True)
+            if print_progress:
+                print(progress, end="\r", flush=True)
 
-        print(cmd.arguments)
+        logger.debug(cmd.arguments)
 
         cmd.execute()
-        print()
+        if print_progress:
+            print()
 
         if delete_input:
             # Delete the input files
             pass
 
-    return
+    return # Done
