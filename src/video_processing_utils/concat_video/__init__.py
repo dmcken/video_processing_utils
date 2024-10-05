@@ -1,1 +1,0 @@
-'''Concat video init'''
