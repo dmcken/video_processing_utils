@@ -63,16 +63,18 @@ else:
 
 
 class SkipFile(Exception):
-    '''
-    Exception thrown when we just want to skip a file processing
-    '''
+    """Exception thrown when we just want to skip a file processing.
+
+    Args:
+        Exception (_type_): _description_
+    """
 
 # Global objs
 logger = logging.getLogger(__name__)
 lock = multiprocessing.Lock()
 
 def determine_new_filename(fileprefix: str, ext: str='mp4') -> typing.Tuple[str,bool]:
-    """Determine output filename.
+    """Determine temp output filename during encode.
 
     Args:
         fileprefix (str): Prefix to use.
@@ -107,7 +109,7 @@ def is_h265(filename: str) -> bool:
         bool: True if h.265 found, False otherwise.
     """
     fdata = ffmpeg_utils.fetch_file_data(filename)
-    logger.info(pprint.pformat(fdata))
+    # logger.info(pprint.pformat(fdata))
     video_formats = list(map(
         lambda x: x['codec_tag_string'],
         filter(lambda x: x['codec_type'] == 'video', fdata['streams']),
@@ -116,7 +118,7 @@ def is_h265(filename: str) -> bool:
     if 'hev1' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
         return True
 
-    logger.info(f"Formats in '{filename}' => {video_formats}")
+    logger.info(f"Formats in '{filename}' => {pprint.pformat(video_formats)}")
 
     # No h265 was found
     return False
@@ -335,8 +337,7 @@ def parse_args():
 
 
 def main() -> None:
-    """Main function
-    """
+    """Main function"""
     #logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
     logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
