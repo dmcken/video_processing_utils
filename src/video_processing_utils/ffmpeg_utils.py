@@ -1,10 +1,9 @@
 '''Video functions.
 
-Underlying video utility functions.
-
-
+Video utility functions common to multiple commands.
 
 '''
+
 # System imports
 import json
 import logging
