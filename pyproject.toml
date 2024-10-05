@@ -25,7 +25,6 @@ classifiers = [
 dependencies = [
     "python-dotenv",
     "python-ffmpeg",
-    "pymediainfo", # To depreciate
     "psutil",
 ]
 
@@ -34,6 +33,9 @@ Homepage = "https://github.com/dmcken/video_processing_utils"
 Issues = "https://github.com/dmcken/video_processing_utils/issues"
 
 [project.scripts]
-vumerge = "video_processing_utils.concat_video.cli:main"
-vuconvert = "video_processing_utils.convert_video:main"
+vuconcat    = "video_processing_utils.concat_cli:main"
 vucontainer = "video_processing_utils.convert_container:process_dir"
+vuconvert   = "video_processing_utils.convert_video:main"
+vumerge     = "video_processing_utils.concat_video.cli:main"
+
+

@@ -18,11 +18,11 @@ TODO:
 
 # Built in
 import argparse
-import json
 import logging
 import multiprocessing
 import os
 import pathlib
+import pprint
 import subprocess
 import sys
 import time
@@ -32,7 +32,9 @@ import typing
 # External imports
 import ffmpeg
 import psutil
-import pymediainfo
+
+# Local imports
+from . import ffmpeg_utils
 
 # Global definitions
 ACCEPTED_EXTENSIONS = [
@@ -96,34 +98,20 @@ def determine_new_filename(fileprefix: str, ext: str='mp4') -> typing.Tuple[str,
         i += 1
 
 def is_h265(filename: str) -> bool:
-    '''
-    Determine if the file is in h265 format.
+    """Determine if the file has its video in h265 format.
 
-    Params:
-    filename: str
+    Args:
+        filename (str): Filename to check.
 
-
-    '''
-    # json.loads(
-    #     ffmpeg.FFmpeg(executable="ffprobe").input(
-    #         '<filename>.mp4',
-    #         print_format="json",
-    #         show_streams=None,
-    #         show_format=None,
-    #         show_private_data=None
-    #     ).execute()
-    # )
-    media_info = pymediainfo.MediaInfo.parse(filename)
-    all_track_data = list(map(lambda x: x.to_data(), media_info.tracks))
-    video_tracks = filter(lambda x: x['track_type'] == 'Video', all_track_data)
-    # pprint.pprint(list(video_tracks))
-
-    video_formats = []
-    for curr_video_track in video_tracks:
-        try:
-            video_formats.append(curr_video_track['codec_id'])
-        except KeyError:
-            video_formats.append(curr_video_track['commercial_name'])
+    Returns:
+        bool: True if h.265 found, False otherwise.
+    """
+    fdata = ffmpeg_utils.fetch_file_data(filename)
+    logger.info(pprint.pformat(fdata))
+    video_formats = list(map(
+        lambda x: x['codec_tag_string'],
+        filter(lambda x: x['codec_type'] == 'video', fdata['streams']),
+    ))
 
     if 'hev1' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
         return True
@@ -133,12 +121,21 @@ def is_h265(filename: str) -> bool:
     # No h265 was found
     return False
 
+def transcode_file_ffmpeg(filename: str, new_file_name: str) -> None:
+    """Handle transcoding a single file (using the ffmpeg module).
+
+    Args:
+        filename (str): _description_
+        new_file_name (str): _description_
+    """
+
 def transcode_file(filename, new_file_name):
     '''Handle transcoding a single file.
     '''
     call_params = [
         'ffmpeg',   '-y',
         # '-hwaccel', # 'cuda',
+        # '-hwaccel', 'vaapi',
         '-i',       filename,
         '-vf',      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         # Catch-all for an extra streams, for those just copy

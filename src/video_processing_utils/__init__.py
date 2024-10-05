@@ -1,5 +1,7 @@
 '''Main module init'''
 
-__version__ = "0.0.2"
+__version__ = "0.0.4"
 
-from .ffmpeg_utils import concat_ffmpeg_demuxer
+from .ffmpeg_utils import concat_ffmpeg_demuxer, \
+    fetch_file_metadata, \
+    fetch_file_data
