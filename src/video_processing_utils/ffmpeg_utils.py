@@ -20,8 +20,13 @@ logger = logging.getLogger(__name__)
 def fetch_file_metadata(filename: str) -> str:
     """Fetch the raw metadata from a file.
 
-    cli:
+    This metadata is the user-defined parameters like title, genre, year,
+    description and not technical details like codec, bitrate, etc.
+
+    FFmpeg cli:
+    ```
     ffmpeg -i <filename> -f ffmetadata -
+    ```
 
     Args:
         filename (str): Filename to read metadata from.
@@ -42,8 +47,10 @@ def fetch_file_metadata(filename: str) -> str:
 def fetch_file_data(filename: str) -> dict:
     """Fetch file data via ffprobe.
 
-    ffmpeg cli:
+    FFmpeg cli:
+    ```
     ffprobe -print_format json -show_chapters -show_programs -show_streams -show_format <filename>
+    ```
 
     Args:
         filename (str): Filename to read metadata from.
