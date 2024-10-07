@@ -123,14 +123,77 @@ def is_h265(filename: str) -> bool:
     # No h265 was found
     return False
 
-def transcode_file_ffmpeg(input_filename: str, new_file_name: str,
-                          delete_input=True, delete_log=True) -> None:
+def transcode_file_ffmpeg(input_filename: str, output_filename: str) -> None:
     """Handle transcoding a single file (using the ffmpeg module).
 
     Args:
-        filename (str): _description_
-        new_file_name (str): _description_
+        input_filename (str): Input filename to transcode from.
+        output_filename (str): Output filename to transcode to.
     """
+    original_metadata = ffmpeg_utils.fetch_file_data(input_filename)
+    video_data = list(filter(
+        lambda x: x['codec_type'] == 'video',
+        original_metadata['streams']
+    ))
+
+    transcode_cmd = ffmpeg.FFmpeg().\
+        option("y").\
+        input(input_filename).\
+        output(
+            output_filename,
+            {
+                # Catch-all for an extra streams, for those just copy
+                'c':       'copy',
+                'codec:v': 'libx265',   # Video to H265
+                'codec:a': 'aac',       # Audio to AAC
+                'codec:s': 'copy',      # Copy the subtitles
+                'dn':      None,        # Ignore the data streams (most seem to be
+                                        #  "ffmpeg GPAC ISO Hint Handler")
+            },
+            vf = "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            map=['0'],  # Map any other streams (e.g. subtitles)
+        )
+
+    # @transcode_cmd.on("start")
+    # def on_start(arguments: list[str]):
+    #     print("arguments:", arguments)
+
+    # @transcode_cmd.on("stderr")
+    # def on_stderr(line):
+    #     print("stderr:", line)
+
+    # Feeds a status which looks like the following:
+    # Progress(
+    #   frame=223,
+    #   fps=50.0,
+    #   size=786432,    # Output bytes (at completion size of output file)
+    #   time=datetime.timedelta(seconds=9, microseconds=200000),
+    #   bitrate=683.3,
+    #   speed=2.05
+    # )
+    @transcode_cmd.on("progress")
+    def on_progress(progress: ffmpeg.Progress):
+        percentage = (progress.frame / float(video_data[0]['nb_frames'])) * 100
+        print(
+            f"{percentage:6.2f}% - {progress.fps}fps - {progress.speed}x - {progress.bitrate}bps",
+            end="\r", flush=True,
+        )
+
+    # @transcode_cmd.on("completed")
+    # def on_completed():
+    #     # The final status line will remain
+    #     print()
+
+    # @transcode_cmd.on("terminated")
+    # def on_terminated():
+    #     print("terminated")
+
+    try:
+        transcode_cmd.execute()
+    except ffmpeg.FFmpegFileNotFound as exc:
+        raise SkipFile(f"Input file '{input_filename}' is missing") from exc
+    except ffmpeg.FFmpegInvalidCommand as exc:
+        raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
 
 def transcode_file(filename, new_file_name):
     '''Handle transcoding a single file.
@@ -211,6 +274,9 @@ def transcode_file(filename, new_file_name):
         if prog_h.returncode:
             raise RuntimeError(f"Got a issue from ffmpeg: {prog_h.returncode}")
 
+    # Purge the log file
+    os.remove(filename + '.log')
+
 
 def process_file(filename: str):
     '''
@@ -248,7 +314,7 @@ def process_file(filename: str):
             output_extension
         )
 
-        transcode_file(filename, new_file_name)
+        transcode_file_ffmpeg(filename, new_file_name)
 
         size_old = os.path.getsize(filename)
         size_new = os.path.getsize(new_file_name)
@@ -259,7 +325,6 @@ def process_file(filename: str):
             f"Diff: {file_difference:,} ({file_difference / size_old * 100:.2f}%)")
 
         os.remove(filename)
-        os.remove(filename + '.log')
 
         if tmp_file:
             os.rename(new_file_name, filename)
