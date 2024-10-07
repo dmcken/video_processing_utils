@@ -123,7 +123,8 @@ def is_h265(filename: str) -> bool:
     # No h265 was found
     return False
 
-def transcode_file_ffmpeg(filename: str, new_file_name: str) -> None:
+def transcode_file_ffmpeg(input_filename: str, new_file_name: str,
+                          delete_input=True, delete_log=True) -> None:
     """Handle transcoding a single file (using the ffmpeg module).
 
     Args:
@@ -242,8 +243,10 @@ def process_file(filename: str):
         else:  # Default
             output_extension = DEFAULT_OUTPUT_EXTENSION
 
-        new_file_name, tmp_file = determine_new_filename(fileprefix,
-                                                         output_extension)
+        new_file_name, tmp_file = determine_new_filename(
+            fileprefix,
+            output_extension
+        )
 
         transcode_file(filename, new_file_name)
 
