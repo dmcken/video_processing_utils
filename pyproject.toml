@@ -2,6 +2,10 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.metadata]
+# Can be removed once the GIT dependencies are gone.
+allow-direct-references = true
+
 [tool.hatch.version]
 path = "src/video_processing_utils/__init__.py"
 
@@ -24,7 +28,8 @@ classifiers = [
 ]
 dependencies = [
     "python-dotenv",
-    "python-ffmpeg",
+    #"python-ffmpeg",
+    "python-ffmpeg @ git+https://github.com/dmcken/python-ffmpeg@add-started-event",
     "psutil",
 ]
 
