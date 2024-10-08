@@ -18,6 +18,7 @@ TODO:
 
 # Built in
 import argparse
+import datetime
 import logging
 import multiprocessing
 import os
@@ -123,12 +124,22 @@ def is_h265(filename: str) -> bool:
     # No h265 was found
     return False
 
-def transcode_file_ffmpeg(input_filename: str, output_filename: str) -> None:
+def transcode_file_ffmpeg(input_filename: str, output_filename: str,
+                          video_codec: str='libx265', audio_codec: str='aac'
+                          ) -> None:
     """Handle transcoding a single file (using the ffmpeg module).
+
+    todo: candidate to move to ffmpeg_utils module.
 
     Args:
         input_filename (str): Input filename to transcode from.
         output_filename (str): Output filename to transcode to.
+        video_codec (str, optional): Video codec for output. Defaults to 'libx265'.
+        audio_codec (str, optional): Audio codec for output. Defaults to 'aac'.
+
+    Raises:
+        SkipFile: Raised if the input file is missing.
+        RuntimeError: Rauised if the ffmpeg command line is invalid.
     """
     original_metadata = ffmpeg_utils.fetch_file_data(input_filename)
     video_data = list(filter(
@@ -143,9 +154,9 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str) -> None:
             output_filename,
             {
                 # Catch-all for an extra streams, for those just copy
-                'c':       'copy',
-                'codec:v': 'libx265',   # Video to H265
-                'codec:a': 'aac',       # Audio to AAC
+                'c':       'copy',      # Copy streams by default
+                'codec:v': video_codec, # Transcode video to specified format
+                'codec:a': audio_codec, # Transcode audio to specified format
                 'codec:s': 'copy',      # Copy the subtitles
                 'dn':      None,        # Ignore the data streams (most seem to be
                                         #  "ffmpeg GPAC ISO Hint Handler")
@@ -154,13 +165,23 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str) -> None:
             map=['0'],  # Map any other streams (e.g. subtitles)
         )
 
-    # @transcode_cmd.on("start")
-    # def on_start(arguments: list[str]):
-    #     print("arguments:", arguments)
+    @transcode_cmd.on("start")
+    def on_start(arguments: list[str]):
+        if psutil.WINDOWS:
+            psutil.Process().nice(PRIORITY_LOWER)
 
-    # @transcode_cmd.on("stderr")
-    # def on_stderr(line):
-    #     print("stderr:", line)
+        logger.debug(f"FFMpeg arguments: {arguments}")
+
+    @transcode_cmd.on("started")
+    def on_started(process: subprocess.Popen):
+        if psutil.WINDOWS:
+            psutil.Process().nice(PRIORITY_NORMAL)
+        elif psutil.LINUX:
+            os.setpriority(os.PRIO_PROCESS, process.pid, PRIORITY_LOWER)
+
+    @transcode_cmd.on("stderr")
+    def on_stderr(line: str):
+        logger.error(f"FFMpeg stderr: {line}")
 
     # Feeds a status which looks like the following:
     # Progress(
@@ -174,7 +195,9 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str) -> None:
     @transcode_cmd.on("progress")
     def on_progress(progress: ffmpeg.Progress):
         percentage = (progress.frame / float(video_data[0]['nb_frames'])) * 100
+        curr_time = datetime.datetime.now()
         print(
+            f"{curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")} "
             f"{percentage:6.2f}% - {progress.fps}fps - {progress.speed}x - {progress.bitrate}bps",
             end="\r", flush=True,
         )
@@ -196,6 +219,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str) -> None:
         raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
 
 def transcode_file(filename, new_file_name):
+
     '''Handle transcoding a single file.
     '''
     call_params = [
@@ -353,8 +377,7 @@ def process_dir():
             file_difference = process_file(filename)
             dir_space_difference += file_difference
         except SkipFile as exc:
-            # logger.error(f"Skipping {filename} for reason {exc}")
-            pass
+            logger.debug(f"Skipping {filename} for reason {exc}")
 
     logger.info(f"Dir difference: {dir_space_difference:,}")
     return dir_space_difference
