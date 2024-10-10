@@ -197,9 +197,10 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     def on_progress(progress: ffmpeg.Progress):
         percentage = (progress.frame / float(video_data[0]['nb_frames'])) * 100
         curr_time = datetime.datetime.now()
+        curr_time_str = curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")
         print(
-            f"{curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")} "
-            f"{percentage:6.2f}% - {progress.fps}fps - {progress.speed}x - {progress.bitrate}bps",
+            f"{curr_time_str} {percentage:6.2f}% - {progress.fps}fps - " +
+            f"{progress.speed}x - {progress.bitrate}bps",
             end="\r", flush=True,
         )
 
