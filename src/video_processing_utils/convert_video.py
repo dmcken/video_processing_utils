@@ -179,9 +179,10 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         elif psutil.LINUX:
             os.setpriority(os.PRIO_PROCESS, process.pid, PRIORITY_LOWER)
 
-    @transcode_cmd.on("stderr")
-    def on_stderr(line: str):
-        logger.error(f"FFMpeg stderr: {line}")
+    # These are the raw ffmpeg lines.
+    # @transcode_cmd.on("stderr")
+    # def on_stderr(line: str):
+    #     logger.error(f"FFMpeg stderr: {line}")
 
     # Feeds a status which looks like the following:
     # Progress(
