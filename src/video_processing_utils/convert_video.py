@@ -199,7 +199,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         curr_time = datetime.datetime.now()
         curr_time_str = curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")
         print(
-            f"{curr_time_str} {percentage:6.2f}% - {progress.fps}fps - " +
+            f"{curr_time_str} - {percentage:6.2f}% - {progress.fps}fps - " +
             f"{progress.speed}x - {progress.bitrate}bps",
             end="\r", flush=True,
         )
@@ -433,7 +433,7 @@ def main() -> None:
     """Main function"""
     #logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
     logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.DEBUG, format=logging.BASIC_FORMAT)
+    logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
 
     args = parse_args()
 
