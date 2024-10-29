@@ -24,6 +24,7 @@ import multiprocessing
 import os
 import pathlib
 import pprint
+import re
 import subprocess
 import sys
 import time
@@ -112,17 +113,35 @@ def is_h265(filename: str) -> bool:
     fdata = ffmpeg_utils.fetch_file_data(filename)
     # logger.info(pprint.pformat(fdata))
     video_formats = list(map(
-        lambda x: x['codec_tag_string'],
+        lambda x: x['codec_name'],
         filter(lambda x: x['codec_type'] == 'video', fdata['streams']),
     ))
 
-    if 'hev1' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
+    if 'hevc' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
         return True
 
-    logger.info(f"Formats in '{filename}' => {pprint.pformat(video_formats)}")
+    logger.info(f"Video formats in '{filename}' => {pprint.pformat(video_formats)}")
 
     # No h265 was found
     return False
+
+def timedelta_parse(value: str) -> datetime.timedelta:
+    """
+    convert input string to timedelta
+    """
+    value = re.sub(r"[^0-9:.]", "", value)
+    if not value:
+        return
+
+    return datetime.timedelta(
+        **{
+            key:float(val)
+            for val, key in zip(
+                value.split(":")[::-1],
+                ("seconds", "minutes", "hours", "days")
+            )
+          }
+        )
 
 def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                           video_codec: str='libx265', audio_codec: str='aac'
@@ -146,6 +165,28 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         lambda x: x['codec_type'] == 'video',
         original_metadata['streams']
     ))
+    try:
+        total_frames = float(video_data[0]['nb_frames'])
+    except KeyError:
+        match video_data[0]['codec_name']:
+            case 'vp8' | 'vp9':
+                # Split 'avg_frame_rate': '2997/100' to 29.97
+                frame_base, divisor = video_data[0]['avg_frame_rate'].split('/')
+                frame_rate = float(frame_base) / float(divisor)
+
+                duration = (
+                    timedelta_parse(video_data[0]['tags']['DURATION']) -
+                    timedelta_parse(video_data[0]['start_time'])
+                ).total_seconds()
+
+                total_frames = duration * frame_rate
+            case _:
+                msg = "Unable to read frame count from codec: " +\
+                    f"{video_data[0]['codec_name']}"
+                logger.error(msg)
+                # This isn't linked to the key error
+                # pylint: disable=W0707
+                raise SkipFile(msg)
 
     transcode_cmd = ffmpeg.FFmpeg().\
         option("y").\
@@ -195,12 +236,12 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     # )
     @transcode_cmd.on("progress")
     def on_progress(progress: ffmpeg.Progress):
-        percentage = (progress.frame / float(video_data[0]['nb_frames'])) * 100
+        percentage = (progress.frame / total_frames) * 100
         curr_time = datetime.datetime.now()
         curr_time_str = curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")
         print(
-            f"{curr_time_str} - {percentage:6.2f}% - {progress.fps}fps - " +
-            f"{progress.speed}x - {progress.bitrate}bps",
+            f"{curr_time_str} - {percentage:6.2f}% - {progress.fps: >6.1f} fps - " +
+            f"{progress.speed: >6.3f}x - {progress.bitrate: >8.2f} bps",
             end="\r", flush=True,
         )
 
@@ -304,7 +345,7 @@ def transcode_file(filename, new_file_name):
     os.remove(filename + '.log')
 
 
-def process_file(filename: str):
+def process_file(filename: str, delete_orig: bool = True):
     '''
     Process a single file to h265
     '''
@@ -350,7 +391,8 @@ def process_file(filename: str):
         logger.info(f"Size old:'{size_old:,}', new: '{size_new:,}' -> " +
             f"Diff: {file_difference:,} ({file_difference / size_old * 100:.2f}%)")
 
-        os.remove(filename)
+        if delete_orig:
+            os.remove(filename)
 
         if tmp_file:
             os.rename(new_file_name, filename)
