@@ -159,6 +159,10 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                 ).total_seconds()
 
                 total_frames = duration * frame_rate
+            case 'wmv3':
+                frame_base, divisor = video_data[0]['avg_frame_rate'].split('/')
+                duration = float(video_data[0]['duration'])
+                total_frames = duration * (float(frame_base) / int(divisor))
             case _:
                 msg = "Unable to read frame count from codec: " +\
                     f"{video_data[0]['codec_name']} in '{input_filename}'"
