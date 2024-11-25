@@ -39,7 +39,7 @@ Most commands are prefixed with vu (video utilities) and their role.
 | --------| ----------- |
 | vuconcat |  |
 | vucontainer |  |
-| vuconvert | Bulk conversion of video files in the folder |
+| vuconvert | Bulk conversion of video files in the folder, codec can be specified. |
 | vumerge |   |
 
 ## Functions:
