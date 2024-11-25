@@ -17,11 +17,10 @@ def setup_logging(args: argparse.Namespace) -> None:
     """
     if args.debug is True:
         log_level = logging.DEBUG
+        logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
     else:
         log_level = logging.INFO
-
-    logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
-    #logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+        logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 
     logging.basicConfig(
         encoding='utf-8',
