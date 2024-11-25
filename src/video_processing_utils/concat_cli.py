@@ -56,6 +56,13 @@ def create_parser() -> argparse.ArgumentParser:
         help="The output path to output to",
         required=True,
     )
+    parser.add_argument(
+        '-d', '--debug',
+        help="Turn on debugging logging",
+        action='store_true',
+        default=False,
+        required=False,
+    )
 
     return parser
 
@@ -78,10 +85,26 @@ def parse_cli() -> argparse.Namespace:
 
     return args
 
+def setup_logging(args: argparse.Namespace) -> None:
+    """Setup logging for invocation.
+
+    Args:
+        args (argparse.Namespace): _description_
+    """
+    if args.debug is True:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.ERROR
+
+    logging.basicConfig(encoding='utf-8', level=log_level)
+    logger.debug(f"Error level: {log_level}")
+
 def main():
     '''Main entry point.
     '''
     args = parse_cli()
+    print(args)
+    setup_logging(args)
     video_processing_utils.concat_ffmpeg_demuxer(
         input_files=args.input,
         output_file=args.output,

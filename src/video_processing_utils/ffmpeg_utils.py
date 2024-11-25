@@ -16,6 +16,43 @@ import ffmpeg
 
 logger = logging.getLogger(__name__)
 
+codec_map = {
+    'h265': {
+        'codec': 'libx265',
+        'types': 'video',
+        'alias': ['h265','x265','av1','libx265','hevc','V_MPEGH/ISO/HEVC'],
+    },
+    'h264': {
+        'codec': 'libx264',
+        'types': 'video',
+        'alias': ['h264','avc1','libx264'],
+    },
+}
+
+def check_codec(filename: str, codec: str) -> bool:
+    """Check code of input filename is of specified codec.
+
+    Args:
+        filename (str): Filename to check.
+        codec (str): Codec to check
+
+    Returns:
+        bool: True if `filename` is of codec `codec`, false otherwise
+    """
+    fdata = fetch_file_data(filename)
+    video_formats = list(map(
+        lambda x: x['codec_name'],
+        filter(lambda x: x['codec_type'] == 'video', fdata['streams']),
+    ))
+
+    codec_found = False
+    for curr_name in video_formats:
+        if curr_name in codec_map[codec]['alias']:
+            codec_found = True
+            break
+
+    return codec_found
+
 def fetch_file_metadata(filename: str) -> str:
     """Fetch the raw metadata from a file.
 
@@ -127,8 +164,8 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
     if len(input_files) <= 1:
         raise RuntimeError("Two or more files required to concat")
 
-    with tempfile.NamedTemporaryFile(delete_on_close=False, delete=True, dir='.') as fp_filelist, \
-         tempfile.NamedTemporaryFile(delete_on_close=False, delete=True, dir='.') as fp_metadata:
+    with tempfile.NamedTemporaryFile(delete_on_close=False, delete=False, dir='.') as fp_filelist, \
+         tempfile.NamedTemporaryFile(delete_on_close=False, delete=False, dir='.') as fp_metadata:
 
         # Read the metadata from the first file in the list and save it.
         metadata_output = fetch_file_metadata(input_files[0])
@@ -139,7 +176,8 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
         file_chapter_start = 0
         # Create the concat input file
         for curr_file in input_files:
-            fp_filelist.write(f"file '{curr_file}'\n".encode('utf-8'))
+            quoted_fname = curr_file
+            fp_filelist.write(f"file '{quoted_fname}'\n".encode('utf-8'))
 
             # Check this file against the first file to ensure parameters match
             # Possibly look to move this off to its own function.
@@ -199,6 +237,8 @@ title={chapter_name}
 
         cmd = cmd.option(
                 'f','concat'
+            ).option(
+                'safe',0
             ).input(
                 fp_filelist.name
             ).input(
@@ -216,7 +256,14 @@ title={chapter_name}
 
         logger.debug(cmd.arguments)
 
-        cmd.execute()
+        try:
+            cmd.execute()
+        except ffmpeg.errors.FFmpegError as exception:
+            logger.error(f"A FFMpeg error has occured: {exception.__class__.__name__}")
+            logger.error(f"- Message from ffmpeg: {exception.message}")
+            logger.error(f"- Arguments to execute ffmpeg: {exception.arguments}")
+            return
+
         if print_progress:
             print()
 

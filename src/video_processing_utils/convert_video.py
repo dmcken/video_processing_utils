@@ -27,7 +27,6 @@ import pprint
 import re
 import subprocess
 import sys
-import time
 import traceback
 import typing
 
@@ -36,7 +35,12 @@ import ffmpeg
 import psutil
 
 # Local imports
-from . import ffmpeg_utils
+from . import ffmpeg_utils, utils
+
+
+# Global objs
+logger = logging.getLogger(__name__)
+lock = multiprocessing.Lock()
 
 # Global definitions
 ACCEPTED_EXTENSIONS = [
@@ -63,7 +67,7 @@ else:
     print("Unsupported platform")
     sys.exit(-1)
 
-
+# Exceptions
 class SkipFile(Exception):
     """Exception thrown when we just want to skip a file processing.
 
@@ -71,10 +75,7 @@ class SkipFile(Exception):
         Exception (_type_): _description_
     """
 
-# Global objs
-logger = logging.getLogger(__name__)
-lock = multiprocessing.Lock()
-
+# Functions
 def determine_new_filename(fileprefix: str, ext: str='mp4') -> typing.Tuple[str,bool]:
     """Determine temp output filename during encode.
 
@@ -101,47 +102,25 @@ def determine_new_filename(fileprefix: str, ext: str='mp4') -> typing.Tuple[str,
 
         i += 1
 
-def is_h265(filename: str) -> bool:
-    """Determine if the file has its video in h265 format.
+def timedelta_parse(value: str) -> datetime.timedelta:
+    """Convert input string to a datetime.timedelta object.
 
     Args:
-        filename (str): Filename to check.
+        value (str): Timedelta string representation.
 
     Returns:
-        bool: True if h.265 found, False otherwise.
-    """
-    fdata = ffmpeg_utils.fetch_file_data(filename)
-    # logger.info(pprint.pformat(fdata))
-    video_formats = list(map(
-        lambda x: x['codec_name'],
-        filter(lambda x: x['codec_type'] == 'video', fdata['streams']),
-    ))
-
-    if 'hevc' in video_formats or 'V_MPEGH/ISO/HEVC' in video_formats:
-        return True
-
-    logger.info(f"Video formats in '{filename}' => {pprint.pformat(video_formats)}")
-
-    # No h265 was found
-    return False
-
-def timedelta_parse(value: str) -> datetime.timedelta:
-    """
-    convert input string to timedelta
+        datetime.timedelta: object representation.
     """
     value = re.sub(r"[^0-9:.]", "", value)
     if not value:
         return
 
-    return datetime.timedelta(
-        **{
-            key:float(val)
-            for val, key in zip(
-                value.split(":")[::-1],
-                ("seconds", "minutes", "hours", "days")
-            )
-          }
+    return datetime.timedelta(**{
+        key:float(val) for val, key in zip(
+            value.split(":")[::-1],
+            ("seconds", "minutes", "hours", "days")
         )
+    })
 
 def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                           video_codec: str='libx265', audio_codec: str='aac'
@@ -169,7 +148,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         total_frames = float(video_data[0]['nb_frames'])
     except KeyError:
         match video_data[0]['codec_name']:
-            case 'vp8' | 'vp9':
+            case 'vp8' | 'vp9' | 'av1':
                 # Split 'avg_frame_rate': '2997/100' to 29.97
                 frame_base, divisor = video_data[0]['avg_frame_rate'].split('/')
                 frame_rate = float(frame_base) / float(divisor)
@@ -182,11 +161,18 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                 total_frames = duration * frame_rate
             case _:
                 msg = "Unable to read frame count from codec: " +\
-                    f"{video_data[0]['codec_name']}"
+                    f"{video_data[0]['codec_name']} in '{input_filename}'"
                 logger.error(msg)
                 # This isn't linked to the key error
                 # pylint: disable=W0707
                 raise SkipFile(msg)
+
+    # Pulled from the check_codec
+    video_formats = list(map(
+        lambda x: x['codec_name'],
+        filter(lambda x: x['codec_type'] == 'video', original_metadata['streams']),
+    ))
+    logger.error(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
 
     transcode_cmd = ffmpeg.FFmpeg().\
         option("y").\
@@ -245,14 +231,14 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
             end="\r", flush=True,
         )
 
-    # @transcode_cmd.on("completed")
-    # def on_completed():
-    #     # The final status line will remain
-    #     print()
+    @transcode_cmd.on("completed")
+    def on_completed():
+        # The final status line will remain
+        print()
 
-    # @transcode_cmd.on("terminated")
-    # def on_terminated():
-    #     print("terminated")
+    @transcode_cmd.on("terminated")
+    def on_terminated():
+        print("terminated before completed")
 
     try:
         transcode_cmd.execute()
@@ -261,115 +247,31 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     except ffmpeg.FFmpegInvalidCommand as exc:
         raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
 
-def transcode_file(filename, new_file_name):
-
-    '''Handle transcoding a single file.
-    '''
-    call_params = [
-        'ffmpeg',   '-y',
-        # '-hwaccel', # 'cuda',
-        # '-hwaccel', 'vaapi',
-        '-i',       filename,
-        '-vf',      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        # Catch-all for an extra streams, for those just copy
-        '-c',       'copy',
-        '-c:v',     'libx265',   # Video to H265
-        '-c:a',     'aac',       # Audio to AAC
-        '-c:s',     'copy',      # Copy the subtitles
-        '-dn',                   # Ignore the data streams (most seem to be
-                                 #  "ffmpeg GPAC ISO Hint Handler")
-        '-map',     '0',         # Map any other streams (e.g. subtitles)
-        new_file_name,
-    ]
-
-    # logger.info(f"Transcoding: {filename} with command line\n{call_params}")
-
-    with open(filename + '.log', 'w', encoding="utf8") as f_stdout:
-
-        if psutil.WINDOWS:
-            lock.acquire()
-            psutil.Process().nice(PRIORITY_LOWER)
-            prog_h = subprocess.Popen(
-                call_params,
-                stdin=subprocess.PIPE,
-                stdout=f_stdout,
-                stderr=subprocess.STDOUT,
-            )
-            psutil.Process().nice(PRIORITY_NORMAL)
-            lock.release()
-        elif psutil.LINUX:
-            # PermissionError is thrown when attempting to return to the normal
-            # priority that is being done above on windows.
-            # We are since python 3.3 able to just set the priority of the ffmpeg
-            # process directly so this will likely become the default going
-            # forward.
-            prog_h = subprocess.Popen(
-                call_params,
-                stdin=subprocess.PIPE,
-                stdout=f_stdout,
-                stderr=subprocess.STDOUT,
-            )
-            os.setpriority(os.PRIO_PROCESS, prog_h.pid, PRIORITY_LOWER)
-        else:
-            print("Unsupported platform")
-            sys.exit(-1)
-
-        #logger.info(f"Started: {prog_h.pid}")
-        process_data = psutil.Process(prog_h.pid)
-
-        process_idle = 0
-        while prog_h.poll() is None:
-            try:
-                if process_data.cpu_percent(interval=1.0) < 2.0:
-                    process_idle += 1
-                else:
-                    process_idle = 0
-
-                if process_idle > 20:
-                    logging.error("Terminating due to inactivity")
-                    prog_h.kill()
-                    time.sleep(2)
-                    os.remove(new_file_name)
-                    raise subprocess.CalledProcessError(-1, call_params[0])
-
-                time.sleep(1)
-            except psutil.NoSuchProcess:
-                break
-
-        prog_h.wait()
-
-        if prog_h.returncode:
-            raise RuntimeError(f"Got a issue from ffmpeg: {prog_h.returncode}")
-
-    # Purge the log file
-    os.remove(filename + '.log')
-
-
-def process_file(filename: str, delete_orig: bool = True):
+def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = True, ) -> int:
     '''
     Process a single file to h265
     '''
     try:
         if not os.path.exists(filename):
-            raise SkipFile("File no longer present")
+            raise SkipFile("file no longer present")
 
         if os.path.isdir(filename):
-            raise SkipFile("Is a directory")
+            raise SkipFile("is a directory")
 
         if os.stat(filename).st_size == 0:
-            raise SkipFile("Is zero size")
+            raise SkipFile("is zero size")
 
         try:
             fileprefix, exten = filename.rsplit('.', 1)
         except ValueError:
-            raise SkipFile("Invalid file format") from None
+            raise SkipFile("invalid file format") from None
 
         if exten.lower() not in ACCEPTED_EXTENSIONS:
-            raise SkipFile("Not a file to process")
+            raise SkipFile("not a file to process")
 
-        # Check the media, is it not h265?
-        if is_h265(filename):
-            raise SkipFile("File is already h265")
+        # Check the media, is it not the desired codec
+        if ffmpeg_utils.check_codec(filename, args.video_codec):
+            raise SkipFile(f"file is already '{args.video_codec}'")
 
         if exten == 'mkv':
             output_extension = 'mkv'
@@ -381,7 +283,11 @@ def process_file(filename: str, delete_orig: bool = True):
             output_extension
         )
 
-        transcode_file_ffmpeg(filename, new_file_name)
+        transcode_file_ffmpeg(
+            filename, new_file_name,
+            video_codec=ffmpeg_utils.codec_map[args.video_codec]['codec'],
+            audio_codec=args.audio,
+        )
 
         size_old = os.path.getsize(filename)
         size_new = os.path.getsize(new_file_name)
@@ -410,7 +316,7 @@ def process_file(filename: str, delete_orig: bool = True):
             exc_type, exc_value, exc_traceback)))
         raise SkipFile("Generic Error") from None
 
-def process_dir():
+def process_dir(args: argparse.Namespace):
     '''Process appropriate files in a directory.
     '''
 
@@ -418,7 +324,7 @@ def process_dir():
 
     for filename in sorted(os.listdir('.')):
         try:
-            file_difference = process_file(filename)
+            file_difference = process_file(filename, args)
             dir_space_difference += file_difference
         except SkipFile as exc:
             logger.debug(f"Skipping {filename} for reason {exc}")
@@ -433,7 +339,7 @@ def print_dir():
     for filename in os.listdir('.'):
         logger.error(f"File found: {filename}")
 
-def process_recursive():
+def process_recursive(args: argparse.Namespace):
     '''Process appropriate files in a directory recursively.
     '''
     root_dir = os.getcwd()
@@ -447,7 +353,7 @@ def process_recursive():
         except FileNotFoundError:
             logger.error(f"Folder '{curr_dir}' no longer present, skipping.")
             continue
-        dir_diff = process_dir()
+        dir_diff = process_dir(args)
         total_difference += dir_diff
         os.chdir(root_dir)
 
@@ -457,6 +363,10 @@ def parse_args():
     '''Parse arguments passed to application.
     '''
     parser = argparse.ArgumentParser(description='Bulk converter')
+
+    utils.add_common_arguments(parser=parser)
+
+    # App specific
     parser.add_argument(
         '--path',
         type=pathlib.Path,
@@ -464,29 +374,52 @@ def parse_args():
         default='.'
     )
     parser.add_argument('-r', '--recursive', action='store_true')
+    parser.add_argument(
+        '-v', '--video',
+        default='x265',
+        help='Video codec to use (default: %(default)s)',
+    )
+    parser.add_argument(
+        '-a', '--audio',
+        default='aac',
+        help='Video codec to use (default: %(default)s)',
+    )
     parser.set_defaults(recursive=False)
 
     prog_args = parser.parse_args()
 
-    return prog_args
+    # Verify the codec is known
+    found_video_codec = False
+    for curr_codec, codec_data in ffmpeg_utils.codec_map.items():
+        if prog_args.video in codec_data['alias']:
+            prog_args.video_codec = curr_codec
+            found_video_codec = True
+            break
 
+    if found_video_codec is False:
+        print(f"Video format '{prog_args.video}' not found")
+        return
+
+    return prog_args
 
 def main() -> None:
     """Main function"""
-    #logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
-    logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
-    logging.basicConfig(level=logging.INFO, format=logging.BASIC_FORMAT)
-
     args = parse_args()
+    if args is None:
+        return
+
+    utils.setup_logging(args=args)
+
+    logger.debug(f"Args: {args}")
 
     # Change to path specified
     os.chdir(args.path)
 
     # Recursive or just that directory
     if args.recursive:
-        process_recursive()
+        process_recursive(args)
     else:
-        process_dir()
+        process_dir(args)
 
 if __name__ == '__main__':
     main()
