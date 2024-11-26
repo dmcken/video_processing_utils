@@ -164,8 +164,8 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
     if len(input_files) <= 1:
         raise RuntimeError("Two or more files required to concat")
 
-    with tempfile.NamedTemporaryFile(delete_on_close=False, delete=False, dir='.') as fp_filelist, \
-         tempfile.NamedTemporaryFile(delete_on_close=False, delete=False, dir='.') as fp_metadata:
+    with tempfile.NamedTemporaryFile(delete_on_close=False, delete=True, dir='.') as fp_filelist, \
+         tempfile.NamedTemporaryFile(delete_on_close=False, delete=True, dir='.') as fp_metadata:
 
         # Read the metadata from the first file in the list and save it.
         metadata_output = fetch_file_metadata(input_files[0])
