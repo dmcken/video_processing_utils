@@ -176,7 +176,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         lambda x: x['codec_name'],
         filter(lambda x: x['codec_type'] == 'video', original_metadata['streams']),
     ))
-    logger.error(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
+    logger.info(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
 
     transcode_cmd = ffmpeg.FFmpeg().\
         option("y").\
@@ -235,14 +235,14 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
             end="\r", flush=True,
         )
 
-    @transcode_cmd.on("completed")
-    def on_completed():
-        # The final status line will remain
-        print()
+    # @transcode_cmd.on("completed")
+    # def on_completed():
+    #     # The final status line will remain
+    #     print()
 
     @transcode_cmd.on("terminated")
     def on_terminated():
-        print("terminated before completed")
+        logger.error("terminated before coversion finished")
 
     try:
         transcode_cmd.execute()
