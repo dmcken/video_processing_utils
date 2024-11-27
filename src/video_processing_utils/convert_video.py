@@ -382,7 +382,7 @@ def parse_args():
 
     utils.add_common_arguments(parser=parser)
 
-    # App specific
+    # Add app specific CLI arguments.
     parser.add_argument(
         '--path',
         type=pathlib.Path,
