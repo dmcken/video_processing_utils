@@ -255,7 +255,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         with open(f'{input_filename}.err','w', encoding='utf-8') as f:
             f.write(
                 f"Args:\n{exc.arguments}\n" +
-                f"CLI:\n{" ".join(exc.arguments)}\n" +
+                f"CLI:\n{' '.join(exc.arguments)}\n" +
                 f"Stderr:\n{exc.message}"
             )
         raise
