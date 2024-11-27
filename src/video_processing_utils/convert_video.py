@@ -250,6 +250,15 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         raise SkipFile(f"Input file '{input_filename}' is missing") from exc
     except ffmpeg.FFmpegInvalidCommand as exc:
         raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
+    except ffmpeg.FFmpegError as exc:
+        # Save as much of the output so the situation can be investigated effectively.
+        with open(f'{input_filename}.err','w', encoding='utf-8') as f:
+            f.write(
+                f"Args:\n{exc.arguments}\n" +
+                f"CLI:\n{" ".join(exc.arguments)}\n" +
+                f"Stderr:\n{exc.message}"
+            )
+        raise
 
 def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = True, ) -> int:
     '''
@@ -316,11 +325,14 @@ def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = Tr
     except Exception as exc:
         logger.error(f"An exception occurred processing file '{filename}': {exc.__class__}, {exc}")
         exc_type, exc_value, exc_traceback = sys.exc_info()
-        logger.error(repr(traceback.format_exception(
-            exc_type, exc_value, exc_traceback)))
+        logger.error(
+            pprint.pformat(
+                traceback.format_exception(exc_type, exc_value, exc_traceback)
+            )
+        )
         raise SkipFile("Generic Error") from None
 
-def process_dir(args: argparse.Namespace):
+def process_dir(args: argparse.Namespace) -> int:
     '''Process appropriate files in a directory.
     '''
 
