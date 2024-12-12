@@ -139,43 +139,65 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         SkipFile: Raised if the input file is missing.
         RuntimeError: Rauised if the ffmpeg command line is invalid.
     """
-    original_metadata = ffmpeg_utils.fetch_file_data(input_filename)
-    video_data = list(filter(
+    full_metadata = ffmpeg_utils.fetch_file_data(input_filename)
+    logger.debug(pprint.pformat(full_metadata))
+    video_streams_data = list(filter(
         lambda x: x['codec_type'] == 'video',
-        original_metadata['streams']
+        full_metadata['streams']
     ))
-    try:
-        total_frames = float(video_data[0]['nb_frames'])
-    except KeyError:
-        match video_data[0]['codec_name']:
-            case 'vp8' | 'vp9' | 'av1':
+    total_frames = -1
+    if 'nb_frames' in video_streams_data[0]:
+        total_frames = float(video_streams_data[0]['nb_frames'])
+    else:
+        match video_streams_data[0]['codec_name']:
+            case 'av1' | 'h264' | 'vp8' | 'vp9':
                 # Split 'avg_frame_rate': '2997/100' to 29.97
-                frame_base, divisor = video_data[0]['avg_frame_rate'].split('/')
+                frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
                 frame_rate = float(frame_base) / float(divisor)
 
+                # Duration can sometimes be DURATION or DURATION-eng
+                duration_key = list(filter(
+                    lambda y: y[:8] == 'DURATION',
+                    video_streams_data[0]['tags'].keys(),
+                ))[0]
+
                 duration = (
-                    timedelta_parse(video_data[0]['tags']['DURATION']) -
-                    timedelta_parse(video_data[0]['start_time'])
+                    timedelta_parse(video_streams_data[0]['tags'][duration_key]) -
+                    timedelta_parse(video_streams_data[0]['start_time'])
                 ).total_seconds()
 
                 total_frames = duration * frame_rate
             case 'wmv3':
-                frame_base, divisor = video_data[0]['avg_frame_rate'].split('/')
-                duration = float(video_data[0]['duration'])
+                frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
+                duration = float(video_streams_data[0]['duration'])
                 total_frames = duration * (float(frame_base) / int(divisor))
             case _:
                 msg = "Unable to read frame count from codec: " +\
-                    f"{video_data[0]['codec_name']} in '{input_filename}'"
+                    f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
                 logger.error(msg)
-                # This isn't linked to the key error
-                # pylint: disable=W0707
                 raise SkipFile(msg)
 
-    # Pulled from the check_codec
+    # Fetch the video_formats
     video_formats = list(map(
         lambda x: x['codec_name'],
-        filter(lambda x: x['codec_type'] == 'video', original_metadata['streams']),
+        filter(
+            lambda x: x['disposition']['attached_pic'] == 0,
+            video_streams_data,
+        ),
     ))
+
+    # Detect embedded images
+    extra_params = {}
+    for i in range(len(full_metadata['streams'])):
+        if full_metadata['streams'][i]['codec_type'] == 'video' and \
+            full_metadata['streams'][i]['disposition']['attached_pic']:
+            # Attached images should just be copied.
+            extra_params[f'codec:{i}'] = 'copy'
+
+    logger.debug(f"Extra params: {extra_params}")
+
+    # Above here should be split off into its own function.
+
     logger.info(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
 
     transcode_cmd = ffmpeg.FFmpeg().\
@@ -189,10 +211,11 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                 'codec:v': video_codec, # Transcode video to specified format
                 'codec:a': audio_codec, # Transcode audio to specified format
                 'codec:s': 'copy',      # Copy the subtitles
+                **extra_params,         # Any extra parameters
                 'dn':      None,        # Ignore the data streams (most seem to be
                                         #  "ffmpeg GPAC ISO Hint Handler")
             },
-            vf = "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            # vf = "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             map=['0'],  # Map any other streams (e.g. subtitles)
         )
 
@@ -322,8 +345,14 @@ def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = Tr
     except SkipFile as exc:
         #logger.info(f"{filename} -> Skipped -> {exc}")
         raise exc
+    except ffmpeg.errors.FFmpegError as exc:
+        logger.error(f"Exception occurred transcoding file '{filename}': {exc.__class__}, {exc}")
+        if os.path.getsize(new_file_name) == 0:
+            logger.error(f"Deleting zero length output: {new_file_name}")
+            os.remove(new_file_name)
+        raise SkipFile("Generic Error") from None
     except Exception as exc:
-        logger.error(f"An exception occurred processing file '{filename}': {exc.__class__}, {exc}")
+        logger.error(f"Exception occurred transcoding file '{filename}': {exc.__class__}, {exc}")
         exc_type, exc_value, exc_traceback = sys.exc_info()
         logger.error(
             pprint.pformat(
