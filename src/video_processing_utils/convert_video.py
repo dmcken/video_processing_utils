@@ -288,6 +288,7 @@ def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = Tr
     Process a single file to h265
     '''
     try:
+        new_file_name = ''
         if not os.path.exists(filename):
             raise SkipFile("file no longer present")
 
@@ -346,8 +347,11 @@ def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = Tr
         #logger.info(f"{filename} -> Skipped -> {exc}")
         raise exc
     except ffmpeg.errors.FFmpegError as exc:
-        logger.error(f"Exception occurred transcoding file '{filename}': {exc.__class__}, {exc}")
-        if os.path.getsize(new_file_name) == 0:
+        logger.error(
+            "Exception occurred transcoding file " +
+            f"'{filename}': {exc.__class__}, {exc}"
+        )
+        if new_file_name != '' and os.path.getsize(new_file_name) == 0:
             logger.error(f"Deleting zero length output: {new_file_name}")
             os.remove(new_file_name)
         raise SkipFile("Generic Error") from None
