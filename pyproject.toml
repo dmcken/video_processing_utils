@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires      = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
@@ -13,8 +13,8 @@ path = "src/video_processing_utils/__init__.py"
 where = ["src"]
 
 [project]
-name="video_processing_utils"
-dynamic=["version"]
+name    = "video_processing_utils"
+dynamic = ["version"]
 authors = [
   { name="David Mc Ken", email="david.mcken@codepro.guru" },
 ]
@@ -28,19 +28,20 @@ classifiers = [
 ]
 dependencies = [
     "python-dotenv",
-    #"python-ffmpeg",
     "python-ffmpeg @ git+https://github.com/dmcken/python-ffmpeg@add-started-event",
     "psutil",
+    "videohash @ git+https://github.com/dmcken/videohash.git@pillow10",
 ]
 
 [project.urls]
 Homepage = "https://github.com/dmcken/video_processing_utils"
-Issues = "https://github.com/dmcken/video_processing_utils/issues"
+Issues   = "https://github.com/dmcken/video_processing_utils/issues"
 
 [project.scripts]
 vuconcat    = "video_processing_utils.concat_cli:main"
 vucontainer = "video_processing_utils.convert_container:process_dir"
 vuconvert   = "video_processing_utils.convert_video:main"
 # vumerge     = "video_processing_utils.concat_video.cli:main"
+vudupcheck  = "video_processing_utils.cli:video_dup_finder"
 
 
