@@ -37,9 +37,9 @@ Most commands are prefixed with vu (video utilities) and their role.
 
 | command | description |
 | --------| ----------- |
-| vuconcat |  |
+| vuconcat | Concatenate multiple video files of the same format together, creating chapter markers at conatenation points. |
 | vucontainer |  |
-| vuconvert | Bulk conversion of video files in the folder, codec can be specified. |
+| vuconvert | Bulk conversion of video files in the folder, output codec can be specified. |
 | vumerge |   |
 
 ## Functions:
