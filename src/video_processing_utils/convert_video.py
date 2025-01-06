@@ -168,7 +168,17 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
 
                 total_frames = duration * frame_rate
             case 'vc1' | 'wmv2' | 'wmv3':
-                frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
+                if video_streams_data[0]['avg_frame_rate'] != '0/0':
+                    frame_rate_definition = video_streams_data[0]['avg_frame_rate']
+                elif video_streams_data[0]['r_frame_rate'] != '0/0':
+                    frame_rate_definition = video_streams_data[0]['r_frame_rate']
+                else:
+                    msg = "Unable to read frame rate from " +\
+                        f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
+                    logger.error(msg)
+                    raise SkipFile(msg)
+
+                frame_base, divisor = frame_rate_definition.split('/')
                 duration = float(video_streams_data[0]['duration'])
                 total_frames = duration * (float(frame_base) / int(divisor))
             case _:
