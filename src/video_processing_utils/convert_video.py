@@ -167,7 +167,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                 ).total_seconds()
 
                 total_frames = duration * frame_rate
-            case 'vc1' | 'wmv2' | 'wmv3':
+            case 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
                 if video_streams_data[0]['avg_frame_rate'] != '0/0':
                     frame_rate_definition = video_streams_data[0]['avg_frame_rate']
                 elif video_streams_data[0]['r_frame_rate'] != '0/0':
