@@ -155,19 +155,23 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                 frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
                 frame_rate = float(frame_base) / float(divisor)
 
-                # Duration can sometimes be DURATION or DURATION-eng
-                duration_key = list(filter(
-                    lambda y: y[:8] == 'DURATION',
-                    video_streams_data[0]['tags'].keys(),
-                ))[0]
+                if 'duration' in video_streams_data[0]:
+                    duration_str = video_streams_data[0]['duration']
+                else:
+                    # Duration can sometimes be DURATION or DURATION-eng
+                    duration_key = list(filter(
+                        lambda y: y[:8] == 'DURATION',
+                        video_streams_data[0]['tags'].keys(),
+                    ))[0]
+                    duration_str = video_streams_data[0]['tags'][duration_key]
 
                 duration = (
-                    timedelta_parse(video_streams_data[0]['tags'][duration_key]) -
+                    timedelta_parse(duration_str) -
                     timedelta_parse(video_streams_data[0]['start_time'])
                 ).total_seconds()
 
                 total_frames = duration * frame_rate
-            case 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
+            case 'mpeg1video' | 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
                 if video_streams_data[0]['avg_frame_rate'] != '0/0':
                     frame_rate_definition = video_streams_data[0]['avg_frame_rate']
                 elif video_streams_data[0]['r_frame_rate'] != '0/0':
