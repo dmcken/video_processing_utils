@@ -122,6 +122,75 @@ def timedelta_parse(value: str) -> datetime.timedelta:
         )
     })
 
+def read_total_frames(full_metadata: dict) -> int:
+    """Read the total number of frames from a file's metadata.
+
+    Args:
+        full_metadata (dict): The file metadata from fetch_file_data.
+
+    Raises:
+        SkipFile: Thrown when we can't determine the frame count.
+
+    Returns:
+        int: Frame count.
+    """
+    # Simple case
+    if 'nb_frames' in video_streams_data[0]:
+        return float(video_streams_data[0]['nb_frames'])
+
+    total_frames = -1
+    match video_streams_data[0]['codec_name']:
+        case 'av1' | 'h264' | 'vp8' | 'vp9':
+            # Split 'avg_frame_rate': '2997/100' to 29.97
+            frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
+            frame_rate = float(frame_base) / float(divisor)
+
+            if 'duration' in video_streams_data[0]:
+                duration_str = video_streams_data[0]['duration']
+            else:
+                try:
+                    # Duration can sometimes be DURATION or DURATION-eng
+                    duration_key = list(filter(
+                        lambda y: y[:8] == 'DURATION',
+                        video_streams_data[0]['tags'].keys(),
+                    ))[0]
+                    duration_str = video_streams_data[0]['tags'][duration_key]
+                except IndexError:
+                    if 'duration' in full_metadata['format']:
+                        duration_str = full_metadata['format']['duration']
+                    else:
+                        logger.error(pprint.pformat(full_metadata))
+                        raise SkipFile(f"Unable to determine duration: {video_streams_data}")
+
+            duration = (
+                timedelta_parse(duration_str) -
+                timedelta_parse(video_streams_data[0]['start_time'])
+            ).total_seconds()
+
+            total_frames = duration * frame_rate
+        case 'mpeg1video' | 'mpeg4' | 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
+            if video_streams_data[0]['avg_frame_rate'] != '0/0':
+                frame_rate_definition = video_streams_data[0]['avg_frame_rate']
+            elif video_streams_data[0]['r_frame_rate'] != '0/0':
+                frame_rate_definition = video_streams_data[0]['r_frame_rate']
+            else:
+                msg = "Unable to read frame rate from " +\
+                    f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
+                logger.error(msg)
+                raise SkipFile(msg)
+
+            frame_base, divisor = frame_rate_definition.split('/')
+            duration = float(video_streams_data[0]['duration'])
+            total_frames = duration * (float(frame_base) / int(divisor))
+        case _:
+            msg = "Unable to read frame count from codec: " +\
+                f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
+            logger.error(msg)
+            raise SkipFile(msg)
+
+    return total_frames
+
+
 def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                           video_codec: str='libx265', audio_codec: str='aac'
                           ) -> None:
@@ -145,51 +214,8 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         lambda x: x['codec_type'] == 'video',
         full_metadata['streams']
     ))
-    total_frames = -1
-    if 'nb_frames' in video_streams_data[0]:
-        total_frames = float(video_streams_data[0]['nb_frames'])
-    else:
-        match video_streams_data[0]['codec_name']:
-            case 'av1' | 'h264' | 'vp8' | 'vp9':
-                # Split 'avg_frame_rate': '2997/100' to 29.97
-                frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
-                frame_rate = float(frame_base) / float(divisor)
-
-                if 'duration' in video_streams_data[0]:
-                    duration_str = video_streams_data[0]['duration']
-                else:
-                    # Duration can sometimes be DURATION or DURATION-eng
-                    duration_key = list(filter(
-                        lambda y: y[:8] == 'DURATION',
-                        video_streams_data[0]['tags'].keys(),
-                    ))[0]
-                    duration_str = video_streams_data[0]['tags'][duration_key]
-
-                duration = (
-                    timedelta_parse(duration_str) -
-                    timedelta_parse(video_streams_data[0]['start_time'])
-                ).total_seconds()
-
-                total_frames = duration * frame_rate
-            case 'mpeg1video' | 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
-                if video_streams_data[0]['avg_frame_rate'] != '0/0':
-                    frame_rate_definition = video_streams_data[0]['avg_frame_rate']
-                elif video_streams_data[0]['r_frame_rate'] != '0/0':
-                    frame_rate_definition = video_streams_data[0]['r_frame_rate']
-                else:
-                    msg = "Unable to read frame rate from " +\
-                        f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
-                    logger.error(msg)
-                    raise SkipFile(msg)
-
-                frame_base, divisor = frame_rate_definition.split('/')
-                duration = float(video_streams_data[0]['duration'])
-                total_frames = duration * (float(frame_base) / int(divisor))
-            case _:
-                msg = "Unable to read frame count from codec: " +\
-                    f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
-                logger.error(msg)
-                raise SkipFile(msg)
+    total_frames = read_total_frames(full_metadata)
+    
 
     # Fetch the video_formats
     video_formats = list(map(
