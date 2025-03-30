@@ -4,8 +4,10 @@ Should be stuff like scanning directories and other non-video specific
 functions.
 '''
 
+# System imports
 import argparse
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -44,3 +46,19 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         required=False,
     )
+
+def is_valid_file(parser: argparse.ArgumentParser, filename: str) -> str:
+    """Check for valid input file.
+
+    Args:
+        parser (argparse.ArgumentParser): CLI argparser.
+        filename (str): Filename to check.
+
+    Returns:
+        str: Filename (cleaned).
+    """
+    if not os.path.exists(filename):
+        parser.error(f"File {filename} does not exist")
+        return ""
+    else:
+        return filename
