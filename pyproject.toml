@@ -38,10 +38,9 @@ Homepage = "https://github.com/dmcken/video_processing_utils"
 Issues   = "https://github.com/dmcken/video_processing_utils/issues"
 
 [project.scripts]
-vuconcat    = "video_processing_utils.concat_cli:main"
+vuconcat    = "video_processing_utils.cli:cli_concat_main"
 vucontainer = "video_processing_utils.convert_container:process_dir"
 vuconvert   = "video_processing_utils.convert_video:main"
-# vumerge     = "video_processing_utils.concat_video.cli:main"
 vudupcheck  = "video_processing_utils.cli:video_dup_finder"
 
 
