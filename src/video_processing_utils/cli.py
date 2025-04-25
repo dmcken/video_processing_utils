@@ -14,6 +14,7 @@ import video_processing_utils.utils
 # Globals
 logger = logging.getLogger(__name__)
 
+# Utility functions
 
 def walk_files(base_path='.') -> list[str]:
     """Walk files in a directory.
@@ -31,14 +32,16 @@ def walk_files(base_path='.') -> list[str]:
 
     return file_list
 
+### CLI video duplicate finder functions
 
-
-def video_dup_finder() -> None:
+def cli_video_dup_finder_main() -> None:
     """Video duplicate finder CLI entry.
     """
 
     file_list = walk_files()
     print(f"Count: {len(file_list)}")
+
+### CLI concat functions
 
 def cli_concat_create_parser() -> argparse.ArgumentParser:
     """Arg handler for CLI.
@@ -112,10 +115,11 @@ def cli_concat_setup_logging(args: argparse.Namespace) -> None:
     logger.debug(f"Error level: {log_level}")
 
 def cli_concat_main() -> None:
-    """CLI entry point for vumerge
+    """CLI entry point for vumerge.
     """    
     args = cli_concat_parse_cli()
-    print(args)
+    logger.debug(args)
+    print(f"Merging: {args.input} to {args.output}")
     cli_concat_setup_logging(args)
     video_processing_utils.concat_ffmpeg_demuxer(
         input_files=args.input,
