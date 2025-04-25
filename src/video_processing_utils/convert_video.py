@@ -122,7 +122,7 @@ def timedelta_parse(value: str) -> datetime.timedelta:
         )
     })
 
-def read_total_frames(full_metadata: dict, video_streams_data: list) -> int:
+def read_total_frames(input_filename: str, full_metadata: dict, video_streams_data: list) -> int:
     """Read the total number of frames from a file's metadata.
 
     Args:
@@ -214,7 +214,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         lambda x: x['codec_type'] == 'video',
         full_metadata['streams']
     ))
-    total_frames = read_total_frames(full_metadata, video_streams_data)
+    total_frames = read_total_frames(input_filename, full_metadata, video_streams_data)
     
 
     # Fetch the video_formats
