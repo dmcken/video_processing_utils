@@ -168,7 +168,7 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
             ).total_seconds()
 
             total_frames = duration * frame_rate
-        case 'mpeg1video' | 'mpeg4' | 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
+        case 'mpeg1video' | 'mpeg2video' | 'mpeg4' | 'vc1' | 'wmv1' | 'wmv2' | 'wmv3':
             if video_streams_data[0]['avg_frame_rate'] != '0/0':
                 frame_rate_definition = video_streams_data[0]['avg_frame_rate']
             elif video_streams_data[0]['r_frame_rate'] != '0/0':
@@ -211,11 +211,11 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     full_metadata = ffmpeg_utils.fetch_file_data(input_filename)
     logger.debug(pprint.pformat(full_metadata))
     video_streams_data = list(filter(
-        lambda x: x['codec_type'] == 'video',
+        lambda x: x['codec_type'] == 'video' and x['codec_name'] != 'mjpeg',
         full_metadata['streams']
     ))
     total_frames = read_total_frames(input_filename, full_metadata, video_streams_data)
-    
+
 
     # Fetch the video_formats
     video_formats = list(map(
