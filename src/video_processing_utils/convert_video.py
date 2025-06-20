@@ -140,7 +140,7 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
 
     total_frames = -1
     match video_streams_data[0]['codec_name']:
-        case 'av1' | 'h264' | 'rv40' | 'vp8' | 'vp9':
+        case 'av1' | 'h264' | 'msmpeg4v3' | 'rv40' | 'vp8' | 'vp9':
             # Split 'avg_frame_rate': '2997/100' or '982057/32768' to 29.97
             frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
             frame_rate = float(frame_base) / float(divisor)
