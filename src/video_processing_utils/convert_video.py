@@ -234,10 +234,41 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
             # Attached images should just be copied.
             extra_params[f'codec:{i}'] = 'copy'
 
-    logger.debug(f"Extra params: {extra_params}")
+
+
+
+    # Check the video size
+    # To handle:
+    # "Picture height must be an integer multiple of the specified chroma subsampling"
+    # This is an issue with files with the following specs:
+    # Video: h264 (Main) (avc1 / 0x31637661), yuv420p(tv, smpte170m/smpte170m/bt709,
+    #        progressive), 720x405, 3948 kb/s, SAR 1:1 DAR 16:9, 29.97 fps, 29.97 tbr,
+    #        30k tbn (default)
+    # The issue being the 405, not being divisble by 4 or 2:
+    # https://ffmpeg.org/pipermail/ffmpeg-user/2015-July/027727.html
+    # To track down, how to calculate which one from the parameters
+    # Most commonly this is handled by a scale paramter:
+    # -filter:v "scale=720:-2"
+    height_modulo = video_streams_data[0]['height'] % 4
+    width_modulo  = video_streams_data[0]['width']  % 4
+    if height_modulo != 0 or width_modulo != 0:
+        if height_modulo != 0 ^ width_modulo != 0:
+            # Both are bad, explicit values have to be used for both
+            scale_value = f"{video_streams_data[0]['height'] + height_modulo}:" + \
+                f"{video_streams_data[0]['width'] + width_modulo}:"
+        else:
+            if width_modulo != 0:
+                # Set scale=-2:<heigth>
+                scale_value = f"-2:{video_streams_data[0]['height']}"
+            if height_modulo != 0:
+                # Set scale=<width>:-2
+                scale_value = f"{video_streams_data[0]['width']}:-2"
+        extra_params['vf'] = f"scale={scale_value}"
+
 
     # Above here should be split off into its own function.
 
+    logger.debug(f"Extra params: {extra_params}")
     logger.info(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
 
     transcode_cmd = ffmpeg.FFmpeg().\
