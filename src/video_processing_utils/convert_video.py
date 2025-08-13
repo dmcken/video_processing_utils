@@ -188,7 +188,7 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
             else:
                 msg = f"Unable to determine duration"
                 logger.error(f"{msg}\nVideo metadata: {pprint.pformat(full_metadata)}")
-                raise RuntimeError(msg)
+                raise SkipFile(msg)
 
             total_frames = duration * (float(frame_base) / int(divisor))
         case _:
