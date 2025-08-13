@@ -180,7 +180,16 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
                 raise SkipFile(msg)
 
             frame_base, divisor = frame_rate_definition.split('/')
-            duration = float(video_streams_data[0]['duration'])
+            if 'duration' in video_streams_data[0]:
+                duration = float(video_streams_data[0]['duration'])
+            elif 'duration' in full_metadata['format']:
+                # Duration isn't set on the video stream
+                duration = float(full_metadata['format']['duration'])
+            else:
+                msg = f"Unable to determine duration"
+                logger.error(f"{msg}\nVideo metadata: {pprint.pformat(full_metadata)}")
+                raise RuntimeError(msg)
+
             total_frames = duration * (float(frame_base) / int(divisor))
         case _:
             msg = "Unable to read frame count from codec: " +\
@@ -215,7 +224,6 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         full_metadata['streams']
     ))
     total_frames = read_total_frames(input_filename, full_metadata, video_streams_data)
-
 
     # Fetch the video_formats
     video_formats = list(map(
