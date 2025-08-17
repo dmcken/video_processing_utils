@@ -142,8 +142,17 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
     match video_streams_data[0]['codec_name']:
         case 'av1' | 'h264' | 'msmpeg4v3' | 'rv40' | 'vp8' | 'vp9':
             # Split 'avg_frame_rate': '2997/100' or '982057/32768' to 29.97
-            frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
-            frame_rate = float(frame_base) / float(divisor)
+            # Can be 0/0
+            if 'avg_frame_rate' in video_streams_data[0] and video_streams_data[0]['avg_frame_rate'] != '0/0':
+                frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
+            elif 'r_frame_rate':
+                frame_base, divisor = video_streams_data[0]['r_frame_rate'].split('/')
+
+            try:
+                frame_rate = float(frame_base) / float(divisor)
+            except ZeroDivisionError:
+                logger.error(f"Zero division error: {pprint.pformat(video_streams_data)}")
+                raise
 
             if 'duration' in video_streams_data[0]:
                 duration_str = video_streams_data[0]['duration']
