@@ -140,7 +140,7 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
 
     total_frames = -1
     match video_streams_data[0]['codec_name']:
-        case 'av1' | 'h264' | 'msmpeg4v3' | 'rv40' | 'vp8' | 'vp9':
+        case 'av1' | 'flv1' | 'h264' | 'msmpeg4v3' | 'rv40' | 'vp8' | 'vp9':
             # Split 'avg_frame_rate': '2997/100' or '982057/32768' to 29.97
             # Can be 0/0
             if 'avg_frame_rate' in video_streams_data[0] and video_streams_data[0]['avg_frame_rate'] != '0/0':
@@ -201,7 +201,7 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
 
             total_frames = duration * (float(frame_base) / int(divisor))
         case _:
-            msg = "Unable to read frame count from codec: " +\
+            msg = "Unknown codec - read frame count from codec: " +\
                 f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
             logger.error(msg)
             raise SkipFile(msg)
