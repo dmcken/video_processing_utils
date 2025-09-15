@@ -19,10 +19,12 @@ pip install -U git+https://github.com/dmcken/video_processing_utils.git
 pipx can manage the environments for you, install directions available [here](https://pipx.pypa.io/stable/).
 
 ```bash
-pipx install -U git+https://github.com/dmcken/video_processing_utils.git
+pipx install git+https://github.com/dmcken/video_processing_utils.git
+```
 
 Output:
 
+```bash
   installed package video_processing_utils 0.0.5, installed using Python 3.12.3
   These apps are now globally available
     - vuconcat
