@@ -46,6 +46,7 @@ lock = multiprocessing.Lock()
 ACCEPTED_EXTENSIONS = [
     '3gp',
     'asf', 'avi',
+    'divx',
     'flv',
     'm2v', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg',
     'ogm',
