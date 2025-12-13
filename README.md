@@ -3,8 +3,15 @@ General video processing utilities (mostly using ffmpeg).
 
 ## Install:
 
-### Prerequisites:
+### Prerequisites
 * We assume ffmpeg + ffprobe are installed and are on the path.
+
+### Prerequisites (win 11)
+
+```
+winget install Git.Git
+winget install ffmpeg
+```
 
 ### Installation via PIP
 
@@ -12,6 +19,8 @@ Depending on your environment a venv may be required, see [venv](https://docs.py
 
 ```bash
 pip install -U git+https://github.com/dmcken/video_processing_utils.git
+or
+python3 -m pip install -U git+https://github.com/dmcken/video_processing_utils.git
 ```
 
 ### Installation via pipx
