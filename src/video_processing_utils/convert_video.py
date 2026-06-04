@@ -48,7 +48,7 @@ ACCEPTED_EXTENSIONS = [
     'asf', 'avi',
     'divx',
     'flv',
-    'm2v', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg',
+    'm2ts', 'm2v', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg',
     'ogm',
     'rm', 'rmvb',
     'ts',
