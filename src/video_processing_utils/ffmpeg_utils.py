@@ -7,6 +7,7 @@ Video utility functions common to multiple commands.
 # System imports
 import json
 import logging
+import os
 import pathlib
 import pprint
 import tempfile
@@ -157,9 +158,16 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
     ```
 
     Args:
-        input (list[str]): _description_
-        output (str): _description_
-        over_write (bool, optional): _description_. Defaults to False.
+        input_files (list[str]): Input files, in the order they should be
+            concatenated. Two or more required.
+        output_file (str): Path to write the concatenated output to.
+        over_write (bool, optional): Overwrite `output_file` if it already
+            exists. Defaults to False.
+        delete_input (bool, optional): Delete `input_files` once the
+            concatenated output has been written successfully. Defaults to
+            False.
+        print_progress (bool, optional): Print ffmpeg's progress to stdout
+            while concatenating. Defaults to True.
     """
     if len(input_files) <= 1:
         raise RuntimeError("Two or more files required to concat")
@@ -188,16 +196,37 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
                 'audio': ['codec_type', 'codec_name', 'channel_layout', 'sample_rate'],
             }
             for curr_stream in range(len(curr_file_media_data['streams'])):
-                stream_fields = fields_to_check[media_data['streams'][curr_stream]['codec_type']]
+                if curr_stream >= len(media_data['streams']):
+                    # curr_file has more streams than the reference (first) file,
+                    # e.g. an attached cover-art image the first file doesn't have.
+                    logger.debug(
+                        f"'{curr_file}' has more streams than the reference file " +
+                        f"'{input_files[0]}', skipping compatibility check for " +
+                        f"stream {curr_stream}"
+                    )
+                    continue
+
+                stream_codec_type = media_data['streams'][curr_stream]['codec_type']
+                if stream_codec_type not in fields_to_check:
+                    # Streams we don't have a comparison defined for (e.g.
+                    # subtitles, data, attachments) are left to ffmpeg rather
+                    # than blocking the concat here.
+                    logger.debug(
+                        f"Skipping compatibility check for stream {curr_stream} " +
+                        f"in '{curr_file}' (codec_type '{stream_codec_type}')"
+                    )
+                    continue
+
+                stream_fields = fields_to_check[stream_codec_type]
                 for curr_field in stream_fields:
-                    if media_data['streams'][curr_stream][curr_field] != \
-                        curr_file_media_data['streams'][curr_stream][curr_field]:
+                    if media_data['streams'][curr_stream].get(curr_field) != \
+                        curr_file_media_data['streams'][curr_stream].get(curr_field):
                         logger.error(
                             f"Field '{curr_field}' in stream {curr_stream} does " +
                             f"not match in file {curr_file}: " +
-                            f"{media_data['streams'][curr_stream][curr_field]}" +
+                            f"{media_data['streams'][curr_stream].get(curr_field)}" +
                             " => " +
-                            f"{curr_file_media_data['streams'][curr_stream][curr_field]}"
+                            f"{curr_file_media_data['streams'][curr_stream].get(curr_field)}"
                         )
                         # Change to raise an exception.
                         return
