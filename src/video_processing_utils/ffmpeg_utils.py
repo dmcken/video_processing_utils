@@ -268,7 +268,17 @@ title={chapter_name}
             print()
 
         if delete_input:
-            # Delete the input files
-            pass
+            # Only delete the inputs once we know the concat actually produced
+            # a real output file - never delete source footage on the strength
+            # of a failed/empty run.
+            if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+                for curr_file in input_files:
+                    logger.info(f"Deleting input file: {curr_file}")
+                    os.remove(curr_file)
+            else:
+                logger.error(
+                    f"Output file '{output_file}' is missing or empty, " +
+                    "not deleting input files"
+                )
 
     return # Done
