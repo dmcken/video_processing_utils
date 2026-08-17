@@ -38,6 +38,7 @@ Homepage = "https://github.com/dmcken/video_processing_utils"
 Issues   = "https://github.com/dmcken/video_processing_utils/issues"
 
 [project.scripts]
+vucheck     = "video_processing_utils.check_media:main"
 vuconcat    = "video_processing_utils.cli:cli_concat_main"
 vucontainer = "video_processing_utils.convert_container:process_dir"
 vuconvert   = "video_processing_utils.convert_video:main"
