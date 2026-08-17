@@ -147,8 +147,13 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
             # Can be 0/0
             if 'avg_frame_rate' in video_streams_data[0] and video_streams_data[0]['avg_frame_rate'] != '0/0':
                 frame_base, divisor = video_streams_data[0]['avg_frame_rate'].split('/')
-            elif 'r_frame_rate':
+            elif 'r_frame_rate' in video_streams_data[0] and video_streams_data[0]['r_frame_rate'] != '0/0':
                 frame_base, divisor = video_streams_data[0]['r_frame_rate'].split('/')
+            else:
+                msg = "Unable to read frame rate from " +\
+                    f"{video_streams_data[0]['codec_name']} in '{input_filename}'"
+                logger.error(msg)
+                raise SkipFile(msg)
 
             try:
                 frame_rate = float(frame_base) / float(divisor)

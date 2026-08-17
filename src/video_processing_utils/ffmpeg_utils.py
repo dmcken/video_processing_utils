@@ -222,15 +222,13 @@ def concat_ffmpeg_demuxer(input_files: list[str], output_file: str,
                 for curr_field in stream_fields:
                     if media_data['streams'][curr_stream].get(curr_field) != \
                         curr_file_media_data['streams'][curr_stream].get(curr_field):
-                        logger.error(
+                        raise RuntimeError(
                             f"Field '{curr_field}' in stream {curr_stream} does " +
                             f"not match in file {curr_file}: " +
                             f"{media_data['streams'][curr_stream].get(curr_field)}" +
                             " => " +
                             f"{curr_file_media_data['streams'][curr_stream].get(curr_field)}"
                         )
-                        # Change to raise an exception.
-                        return
 
             # Insert main chapter data
             file_chapter_end = round(
@@ -250,7 +248,12 @@ title={chapter_name}
             # Copy the chapters from the file if present.
             # offset by the file_chapter_start
 
-            file_chapter_start = file_chapter_end + 1
+            # No gap: the concat demuxer joins files back-to-back, so the next
+            # chapter starts exactly where this one ends. (Previously added a
+            # full extra second here per file, which drifted the chapter
+            # markers further out of sync with the actual content on every
+            # additional file concatenated.)
+            file_chapter_start = file_chapter_end
 
         # Close the concat file
         fp_filelist.close()
@@ -292,7 +295,7 @@ title={chapter_name}
             logger.error(f"A FFMpeg error has occured: {exception.__class__.__name__}")
             logger.error(f"- Message from ffmpeg: {exception.message}")
             logger.error(f"- Arguments to execute ffmpeg: {exception.arguments}")
-            return
+            raise
 
         if print_progress:
             print()

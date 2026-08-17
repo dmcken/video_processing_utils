@@ -6,7 +6,10 @@ import logging
 import os
 import pathlib
 import pprint
+import sys
 
+# External imports
+import ffmpeg
 
 # Local imports
 import video_processing_utils
@@ -221,9 +224,13 @@ def cli_concat_main() -> None:
     video_processing_utils.utils.setup_logging(args=args, default_level=logging.ERROR)
     logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
     print(f"Merging: {args.input} to {args.output}")
-    video_processing_utils.concat_ffmpeg_demuxer(
-        input_files=args.input,
-        output_file=args.output,
-        over_write=args.over_write,
-    )
+    try:
+        video_processing_utils.concat_ffmpeg_demuxer(
+            input_files=args.input,
+            output_file=args.output,
+            over_write=args.over_write,
+        )
+    except (RuntimeError, ffmpeg.errors.FFmpegError) as exc:
+        logger.error(f"Concat failed: {exc}")
+        sys.exit(1)
 
