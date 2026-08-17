@@ -270,18 +270,23 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     height_modulo = video_streams_data[0]['height'] % 4
     width_modulo  = video_streams_data[0]['width']  % 4
     if height_modulo != 0 or width_modulo != 0:
-        if height_modulo != 0 ^ width_modulo != 0:
-            # Both are bad, explicit values have to be used for both
-            scale_value = f"{video_streams_data[0]['height'] + height_modulo}:" + \
-                f"{video_streams_data[0]['width'] + width_modulo}:"
+        if height_modulo != 0 and width_modulo != 0:
+            # Both are bad, explicit (rounded up) values have to be used for both
+            new_width  = video_streams_data[0]['width']  + (4 - width_modulo)
+            new_height = video_streams_data[0]['height'] + (4 - height_modulo)
+            scale_value = f"{new_width}:{new_height}"
+        elif width_modulo != 0:
+            # Set scale=-2:<height>
+            scale_value = f"-2:{video_streams_data[0]['height']}"
         else:
-            if width_modulo != 0:
-                # Set scale=-2:<heigth>
-                scale_value = f"-2:{video_streams_data[0]['height']}"
-            if height_modulo != 0:
-                # Set scale=<width>:-2
-                scale_value = f"{video_streams_data[0]['width']}:-2"
-        extra_params['vf'] = f"scale={scale_value}"
+            # Set scale=<width>:-2
+            scale_value = f"{video_streams_data[0]['width']}:-2"
+        # Use a stream-specific filter (rather than the global 'vf') so it only
+        # applies to the primary video stream. A blanket '-vf' also gets applied to
+        # any other video streams (e.g. an embedded cover-art image copied via
+        # 'codec:N': 'copy'), and ffmpeg refuses to filter a stream that is also
+        # being stream-copied ("Filtering and streamcopy cannot be used together").
+        extra_params['filter:v:0'] = f"scale={scale_value}"
 
 
     # Above here should be split off into its own function.
@@ -289,88 +294,109 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     logger.debug(f"Extra params: {extra_params}")
     logger.info(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
 
-    transcode_cmd = ffmpeg.FFmpeg().\
-        option("y").\
-        input(input_filename).\
-        output(
-            output_filename,
-            {
-                # Catch-all for an extra streams, for those just copy
-                'c':       'copy',      # Copy streams by default
-                'codec:v': video_codec, # Transcode video to specified format
-                'codec:a': audio_codec, # Transcode audio to specified format
-                'codec:s': 'copy',      # Copy the subtitles
-                **extra_params,         # Any extra parameters
-                'dn':      None,        # Ignore the data streams (most seem to be
-                                        #  "ffmpeg GPAC ISO Hint Handler")
-            },
-            # vf = "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-            map=['0'],  # Map any other streams (e.g. subtitles)
-        )
+    def run_transcode(output_options: dict, map_spec: list[str]) -> None:
+        transcode_cmd = ffmpeg.FFmpeg().\
+            option("y").\
+            input(input_filename).\
+            output(
+                output_filename,
+                output_options,
+                map=map_spec,
+            )
 
-    @transcode_cmd.on("start")
-    def on_start(arguments: list[str]):
-        if psutil.WINDOWS:
-            psutil.Process().nice(PRIORITY_LOWER)
+        @transcode_cmd.on("start")
+        def on_start(arguments: list[str]):
+            if psutil.WINDOWS:
+                psutil.Process().nice(PRIORITY_LOWER)
 
-        logger.debug(f"FFMpeg arguments: {arguments}")
+            logger.debug(f"FFMpeg arguments: {arguments}")
 
-    @transcode_cmd.on("started")
-    def on_started(process: subprocess.Popen):
-        if psutil.WINDOWS:
-            psutil.Process().nice(PRIORITY_NORMAL)
-        elif psutil.LINUX:
-            os.setpriority(os.PRIO_PROCESS, process.pid, PRIORITY_LOWER)
+        @transcode_cmd.on("started")
+        def on_started(process: subprocess.Popen):
+            if psutil.WINDOWS:
+                psutil.Process().nice(PRIORITY_NORMAL)
+            elif psutil.LINUX:
+                os.setpriority(os.PRIO_PROCESS, process.pid, PRIORITY_LOWER)
 
-    # These are the raw ffmpeg lines.
-    # @transcode_cmd.on("stderr")
-    # def on_stderr(line: str):
-    #     logger.error(f"FFMpeg stderr: {line}")
+        # These are the raw ffmpeg lines.
+        # @transcode_cmd.on("stderr")
+        # def on_stderr(line: str):
+        #     logger.error(f"FFMpeg stderr: {line}")
 
-    # Feeds a status which looks like the following:
-    # Progress(
-    #   frame=223,
-    #   fps=50.0,
-    #   size=786432,    # Output bytes (at completion size of output file)
-    #   time=datetime.timedelta(seconds=9, microseconds=200000),
-    #   bitrate=683.3,
-    #   speed=2.05
-    # )
-    @transcode_cmd.on("progress")
-    def on_progress(progress: ffmpeg.Progress):
-        percentage = (progress.frame / total_frames) * 100
-        curr_time = datetime.datetime.now()
-        curr_time_str = curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")
-        print(
-            f"{curr_time_str} - {percentage:6.2f}% - {progress.fps: >6.1f} fps - " +
-            f"{progress.speed: >6.3f}x - {progress.bitrate: >8.2f} bps",
-            end="\r", flush=True,
-        )
+        # Feeds a status which looks like the following:
+        # Progress(
+        #   frame=223,
+        #   fps=50.0,
+        #   size=786432,    # Output bytes (at completion size of output file)
+        #   time=datetime.timedelta(seconds=9, microseconds=200000),
+        #   bitrate=683.3,
+        #   speed=2.05
+        # )
+        @transcode_cmd.on("progress")
+        def on_progress(progress: ffmpeg.Progress):
+            percentage = (progress.frame / total_frames) * 100
+            curr_time = datetime.datetime.now()
+            curr_time_str = curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")
+            print(
+                f"{curr_time_str} - {percentage:6.2f}% - {progress.fps: >6.1f} fps - " +
+                f"{progress.speed: >6.3f}x - {progress.bitrate: >8.2f} bps",
+                end="\r", flush=True,
+            )
 
-    # @transcode_cmd.on("completed")
-    # def on_completed():
-    #     # The final status line will remain
-    #     print()
+        # @transcode_cmd.on("completed")
+        # def on_completed():
+        #     # The final status line will remain
+        #     print()
 
-    @transcode_cmd.on("terminated")
-    def on_terminated():
-        logger.error("terminated before coversion finished")
+        @transcode_cmd.on("terminated")
+        def on_terminated():
+            logger.error("terminated before coversion finished")
+
+        transcode_cmd.execute()
+
+    primary_output_options = {
+        # Catch-all for an extra streams, for those just copy
+        'c':       'copy',      # Copy streams by default
+        'codec:v': video_codec, # Transcode video to specified format
+        'codec:a': audio_codec, # Transcode audio to specified format
+        'codec:s': 'copy',      # Copy the subtitles
+        **extra_params,         # Any extra parameters
+        'dn':      None,        # Ignore the data streams (most seem to be
+                                #  "ffmpeg GPAC ISO Hint Handler")
+    }
 
     try:
-        transcode_cmd.execute()
+        run_transcode(primary_output_options, map_spec=['0'])
     except ffmpeg.FFmpegFileNotFound as exc:
         raise SkipFile(f"Input file '{input_filename}' is missing") from exc
     except ffmpeg.FFmpegInvalidCommand as exc:
         raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
     except ffmpeg.FFmpegError as exc:
-        # Save as much of the output so the situation can be investigated effectively.
-        with open(f'{input_filename}.err','w', encoding='utf-8') as f:
-            f.write(
-                f"Args:\n{exc.arguments}\n" +
-                f"CLI:\n{' '.join(exc.arguments)}\n" +
-                f"Stderr:\n{exc.message}"
-            )
-        raise
+        logger.warning(
+            f"Primary transcode of '{input_filename}' failed ({exc}), " +
+            "retrying with a best-effort fallback (video/audio streams only, no filters)."
+        )
+        # Fall back to the simplest possible re-encode: just the primary video and
+        # audio streams, fully re-encoded, dropping anything else (subtitles, cover
+        # art, data streams) that could be tripping up the primary attempt.
+        fallback_output_options = {
+            'codec:v': video_codec,
+            'codec:a': audio_codec,
+        }
+        try:
+            run_transcode(fallback_output_options, map_spec=['0:v:0', '0:a:0?'])
+        except ffmpeg.FFmpegError as fallback_exc:
+            # Save as much of the output so the situation can be investigated effectively.
+            with open(f'{input_filename}.err','w', encoding='utf-8') as f:
+                f.write(
+                    f"Primary args:\n{exc.arguments}\n" +
+                    f"Primary CLI:\n{' '.join(exc.arguments)}\n" +
+                    f"Primary stderr:\n{exc.message}\n\n" +
+                    f"Fallback args:\n{fallback_exc.arguments}\n" +
+                    f"Fallback CLI:\n{' '.join(fallback_exc.arguments)}\n" +
+                    f"Fallback stderr:\n{fallback_exc.message}"
+                )
+            raise fallback_exc from exc
 
 def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = True, ) -> int:
     '''
@@ -440,7 +466,8 @@ def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = Tr
             "Exception occurred transcoding file " +
             f"'{filename}': {exc.__class__}, {exc}"
         )
-        if new_file_name != '' and os.path.getsize(new_file_name) == 0:
+        if new_file_name != '' and os.path.exists(new_file_name) and \
+            os.path.getsize(new_file_name) == 0:
             logger.error(f"Deleting zero length output: {new_file_name}")
             os.remove(new_file_name)
         raise SkipFile("Generic Error") from None
