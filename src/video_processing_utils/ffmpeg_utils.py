@@ -100,7 +100,14 @@ def fetch_file_data(filename: str) -> dict:
         dict: Parsed ffprobe JSON output - chapters, format and stream info.
     """
 
-    cmd = ffmpeg.FFmpeg(executable="ffprobe").input(
+    # '-v error' suppresses ffprobe's human-readable info banner on stderr -
+    # we only need the JSON on stdout anyway. That banner truncates long
+    # metadata tag values (e.g. a comment/title) at a fixed byte length with
+    # no regard for UTF-8 character boundaries, which can leave a multi-byte
+    # sequence cut in half; the ffmpeg-python library decodes stderr lines
+    # strictly as UTF-8, so a file with such a tag would otherwise crash
+    # this call with a UnicodeDecodeError instead of returning its metadata.
+    cmd = ffmpeg.FFmpeg(executable="ffprobe").option("v", "error").input(
         filename,
         print_format="json",
         show_chapters=None,
