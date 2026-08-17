@@ -37,10 +37,11 @@ def setup_logging(args: argparse.Namespace, default_level: int = logging.INFO) -
     logger.debug(f"Error level: {log_level}")
 
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
-    """_summary_
+    """Add the CLI arguments shared by every tool in this package (currently
+    just `-d/--debug`) to `parser`.
 
     Args:
-        parser (argparse.ArgumentParser): _description_
+        parser (argparse.ArgumentParser): Parser to add the arguments to.
     """
 
     # Common arguments

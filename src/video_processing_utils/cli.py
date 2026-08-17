@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 # Utility functions
 
 def walk_files(base_path='.') -> list[str]:
-    """Walk files in a directory.
+    """Recursively walk files in a directory.
 
     Args:
-        path (str, optional): _description_. Defaults to '.'.
+        base_path (str, optional): Directory to walk. Defaults to '.'.
 
     Returns:
-        list[str]: _description_
+        list[str]: Paths of every file found under `base_path`.
     """
     file_list = []
     for root, _, files in os.walk(base_path):
@@ -160,12 +160,10 @@ def video_dup_finder() -> None:
 ### CLI concat functions
 
 def cli_concat_create_parser() -> argparse.ArgumentParser:
-    """Arg handler for CLI.
-
-    Returns a filled in argument parser.
+    """Arg handler for the concat CLI.
 
     Returns:
-        argparse.ArgumentParser: _description_
+        argparse.ArgumentParser: Parser configured with the concat options.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -201,7 +199,7 @@ def cli_concat_parse_cli() -> argparse.Namespace:
     """Return the parsed cli arguments.
 
     Returns:
-        argparse.Namespace: _description_
+        argparse.Namespace: Parsed arguments.
     """
     parser = cli_concat_create_parser()
     args = parser.parse_args()

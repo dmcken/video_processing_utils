@@ -70,10 +70,10 @@ else:
 
 # Exceptions
 class SkipFile(Exception):
-    """Exception thrown when we just want to skip a file processing.
-
-    Args:
-        Exception (_type_): _description_
+    """Raised to abandon processing of the current file and move on to the
+    next one (e.g. it's already the target codec, or a recoverable error
+    occurred). Caught by `process_dir`/`process_recursive`, never propagates
+    out of them.
     """
 
 # Functions

@@ -93,10 +93,11 @@ def fetch_file_data(filename: str) -> dict:
         filename (str): Filename to read metadata from.
 
     Raises:
-        RuntimeError: _description_
+        ffmpeg.errors.FFmpegError: If ffprobe fails to read `filename`
+            (missing file, unreadable/corrupt container, etc.).
 
     Returns:
-        dict: _description_
+        dict: Parsed ffprobe JSON output - chapters, format and stream info.
     """
 
     cmd = ffmpeg.FFmpeg(executable="ffprobe").input(
