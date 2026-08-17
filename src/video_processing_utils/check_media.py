@@ -17,7 +17,7 @@ import time
 def enqueue_output(fH, q):
     for line in iter(fH.readline, ''):
         q.put(line)
-    file.close()
+    fH.close()
 
 def read_popen_pipes(p):
     '''
