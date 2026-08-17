@@ -56,6 +56,8 @@ def process_dir(base_path: str = '.', recursive: bool = False) -> None:
         ffmpeg_run = ffmpeg.FFmpeg().\
             input(curr_file).\
             option('n').\
+            option('v', 'error').\
+            option('stats').\
             output(
                 out_file,
                 {

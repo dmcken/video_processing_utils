@@ -309,6 +309,8 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
 
         transcode_cmd = ffmpeg.FFmpeg().\
             option("y").\
+            option("v", "error").\
+            option("stats").\
             input(input_filename).\
             output(
                 output_filename,
