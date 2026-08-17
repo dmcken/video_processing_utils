@@ -269,6 +269,10 @@ title={chapter_name}
             cmd = cmd.option('y')
 
         cmd = cmd.option(
+                'v', 'error'
+            ).option(
+                'stats'
+            ).option(
                 'f','concat'
             ).option(
                 'safe',0
