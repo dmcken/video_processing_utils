@@ -28,7 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "python-dotenv",
-    "python-ffmpeg @ git+https://github.com/dmcken/python-ffmpeg@add-started-event",
+    "python-ffmpeg @ git+https://github.com/dmcken/python-ffmpeg@main",
     "psutil",
     "videohash @ git+https://github.com/dmcken/videohash.git@pillow10",
 ]
