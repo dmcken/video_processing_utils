@@ -27,6 +27,7 @@ import pprint
 import re
 import subprocess
 import sys
+import time
 import traceback
 import typing
 
@@ -234,6 +235,10 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         full_metadata['streams']
     ))
     total_frames = read_total_frames(input_filename, full_metadata, video_streams_data)
+    try:
+        source_duration_seconds = float(full_metadata['format']['duration'])
+    except (KeyError, ValueError):
+        source_duration_seconds = None
 
     # Fetch the video_formats
     video_formats = list(map(
@@ -295,6 +300,8 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     logger.info(f"Video formats in '{input_filename}' => {pprint.pformat(video_formats)}")
 
     def run_transcode(output_options: dict, map_spec: list[str]) -> None:
+        start_time = time.monotonic()
+
         transcode_cmd = ffmpeg.FFmpeg().\
             option("y").\
             input(input_filename).\
@@ -335,11 +342,28 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         @transcode_cmd.on("progress")
         def on_progress(progress: ffmpeg.Progress):
             percentage = (progress.frame / total_frames) * 100
+
+            # ffmpeg reports time/bitrate/speed as N/A (parsed here as 0.0)
+            # whenever the output has more than one video stream (e.g. the
+            # main video plus a copied cover-art image) - it appears to
+            # track progress off the wrong stream in that case. Fall back to
+            # estimating them ourselves from frame count, wall-clock time
+            # and the source's duration when that happens.
+            speed = progress.speed
+            bitrate = progress.bitrate
+            if speed == 0.0 and total_frames > 0 and source_duration_seconds:
+                elapsed = time.monotonic() - start_time
+                media_seconds_processed = (progress.frame / total_frames) * source_duration_seconds
+                if elapsed > 0:
+                    speed = media_seconds_processed / elapsed
+                if bitrate == 0.0 and media_seconds_processed > 0:
+                    bitrate = (progress.size * 8 / 1000) / media_seconds_processed
+
             curr_time = datetime.datetime.now()
             curr_time_str = curr_time.strftime("%Y-%m-%d %H:%M:%S,%f")
             print(
                 f"{curr_time_str} - {percentage:6.2f}% - {progress.fps: >6.1f} fps - " +
-                f"{progress.speed: >6.3f}x - {progress.bitrate: >8.2f} bps",
+                f"{speed: >6.3f}x - {bitrate: >8.2f} kbps",
                 end="\r", flush=True,
             )
 
