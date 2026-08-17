@@ -98,8 +98,6 @@ def parse_cli() -> argparse.Namespace:
     parser = create_parser()
     args = parser.parse_args()
 
-    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
-
     return args
 
 def main() -> None:
@@ -107,6 +105,7 @@ def main() -> None:
     """
     args = parse_cli()
     utils.setup_logging(args=args)
+    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
 
     if args.recursive:
         search_regex = os.path.join(str(args.path), '**', args.pattern)

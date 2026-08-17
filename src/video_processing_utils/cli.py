@@ -109,8 +109,6 @@ def video_dup_finder_parse_cli() -> argparse.Namespace:
     parser = video_dup_finder_create_parser()
     args = parser.parse_args()
 
-    logger.info(f"Parsed arguments: {pprint.pformat(args)}")
-
     return args
 
 def video_dup_finder_scan(base_path: str, recursive: bool) -> list[str]:
@@ -147,6 +145,7 @@ def video_dup_finder() -> None:
     """
     args = video_dup_finder_parse_cli()
     video_processing_utils.utils.setup_logging(args=args)
+    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
 
     file_list = video_dup_finder_scan(str(args.path), args.recursive)
     logger.info(f"Found {len(file_list)} candidate video file(s) under '{args.path}'")
@@ -210,20 +209,18 @@ def cli_concat_parse_cli() -> argparse.Namespace:
     if args.over_write is False and os.path.exists(args.output):
         parser.error(f"Output file '{args.output}' exists, aborting")
 
-    logger.info(f"Parsed arguments: {pprint.pformat(args)}")
-
     return args
 
 def cli_concat_main() -> None:
     """CLI entry point for vumerge.
     """
     args = cli_concat_parse_cli()
-    logger.debug(args)
-    print(f"Merging: {args.input} to {args.output}")
     # Concat's default output has historically been quieter than the other
     # CLIs (errors only) since the ffmpeg progress line already covers
     # normal feedback; --debug still enables full DEBUG logging as usual.
     video_processing_utils.utils.setup_logging(args=args, default_level=logging.ERROR)
+    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
+    print(f"Merging: {args.input} to {args.output}")
     video_processing_utils.concat_ffmpeg_demuxer(
         input_files=args.input,
         output_file=args.output,

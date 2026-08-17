@@ -123,8 +123,6 @@ def parse_cli() -> argparse.Namespace:
     parser = create_parser()
     args = parser.parse_args()
 
-    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
-
     return args
 
 def main() -> None:
@@ -132,6 +130,7 @@ def main() -> None:
     """
     args = parse_cli()
     utils.setup_logging(args=args)
+    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
 
     process_dir(base_path=str(args.path), recursive=args.recursive)
 
