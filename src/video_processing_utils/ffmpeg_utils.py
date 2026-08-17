@@ -62,7 +62,7 @@ def fetch_file_metadata(filename: str) -> str:
 
     FFmpeg cli:
     ```
-    ffmpeg -i <filename> -f ffmetadata -
+    ffmpeg -v error -i <filename> -f ffmetadata -
     ```
 
     Args:
@@ -71,7 +71,10 @@ def fetch_file_metadata(filename: str) -> str:
     Returns:
         str: metadata.
     """
-    cmd = ffmpeg.FFmpeg().input(
+    # See the comment in fetch_file_data() - '-v error' avoids a
+    # UnicodeDecodeError from ffmpeg-python on files whose metadata tags get
+    # truncated mid-character in the (otherwise unused) stderr info banner.
+    cmd = ffmpeg.FFmpeg().option("v", "error").input(
             filename
         ).output(
             '-', {'f': 'ffmetadata'}
@@ -86,7 +89,7 @@ def fetch_file_data(filename: str) -> dict:
 
     FFmpeg cli:
     ```
-    ffprobe -print_format json -show_chapters -show_programs -show_streams -show_format <filename>
+    ffprobe -v error -print_format json -show_chapters -show_programs -show_streams -show_format <filename>
     ```
 
     Args:
