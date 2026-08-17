@@ -11,23 +11,28 @@ import os
 
 logger = logging.getLogger(__name__)
 
-def setup_logging(args: argparse.Namespace) -> None:
+def setup_logging(args: argparse.Namespace, default_level: int = logging.INFO) -> None:
     """Setup logging for invocation.
 
     Args:
-        args (argparse.Namespace): _description_
+        args (argparse.Namespace): Parsed CLI arguments, expected to carry a
+            `debug` flag (see `add_common_arguments`).
+        default_level (int, optional): Logging level to use when `--debug`
+            was not passed. Individual CLIs that want quieter default output
+            (e.g. only warnings/errors) can override this. Defaults to
+            logging.INFO.
     """
     if args.debug is True:
         log_level = logging.DEBUG
-        logging.BASIC_FORMAT = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
+        log_format = '%(asctime)s - %(name)s - %(thread)d - %(levelname)s - %(message)s'
     else:
-        log_level = logging.INFO
-        logging.BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+        log_level = default_level
+        log_format = '%(asctime)s - %(levelname)s - %(message)s'
 
     logging.basicConfig(
         encoding='utf-8',
         level=log_level,
-        format=logging.BASIC_FORMAT,
+        format=log_format,
     )
     logger.debug(f"Error level: {log_level}")
 

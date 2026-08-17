@@ -216,27 +216,16 @@ def cli_concat_parse_cli() -> argparse.Namespace:
 
     return args
 
-def cli_concat_setup_logging(args: argparse.Namespace) -> None:
-    """Setup logging for invocation.
-
-    Args:
-        args (argparse.Namespace): _description_
-    """
-    if args.debug is True:
-        log_level = logging.DEBUG
-    else:
-        log_level = logging.ERROR
-
-    logging.basicConfig(encoding='utf-8', level=log_level)
-    logger.debug(f"Error level: {log_level}")
-
 def cli_concat_main() -> None:
     """CLI entry point for vumerge.
-    """    
+    """
     args = cli_concat_parse_cli()
     logger.debug(args)
     print(f"Merging: {args.input} to {args.output}")
-    cli_concat_setup_logging(args)
+    # Concat's default output has historically been quieter than the other
+    # CLIs (errors only) since the ffmpeg progress line already covers
+    # normal feedback; --debug still enables full DEBUG logging as usual.
+    video_processing_utils.utils.setup_logging(args=args, default_level=logging.ERROR)
     video_processing_utils.concat_ffmpeg_demuxer(
         input_files=args.input,
         output_file=args.output,
