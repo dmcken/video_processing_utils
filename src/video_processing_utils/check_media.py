@@ -56,9 +56,9 @@ else:
     search_regex = sys.argv[1]
 
 print(f"Starting with regex: {search_regex}")
+files_with_errors = []
 for curr_file in glob.glob(search_regex, recursive=recursive_checking):
     errors_count = 0
-    print("Checking file '{0}': {1}".format(curr_file, errors_count), end='\r')
 
     ffmpeg_cmd = ['ffmpeg', '-v', 'error', '-i', curr_file, '-f', 'null', '-']
 
@@ -71,13 +71,19 @@ for curr_file in glob.glob(search_regex, recursive=recursive_checking):
             if re.search("error", err_line, flags=re.I):
                 errors_count += 1
 
-            print("Checking file '{0}': {1}".format(curr_file, errors_count), end='\r')
-
-        ret_code = progH.poll()
+        progH.poll()
 
         time.sleep(2)
 
-    print()
+    if errors_count > 0:
+        print(f"'{curr_file}': {errors_count} error(s)")
+        files_with_errors.append((curr_file, errors_count))
+
     gc.collect()
 
-print("Done")
+if files_with_errors:
+    print(f"\nDone - {len(files_with_errors)} file(s) with errors:")
+    for curr_file, errors_count in files_with_errors:
+        print(f"  {curr_file}: {errors_count} error(s)")
+else:
+    print("\nDone - no errors found")
