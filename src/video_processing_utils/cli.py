@@ -4,7 +4,6 @@
 import argparse
 import logging
 import os
-import pathlib
 import pprint
 import sys
 
@@ -14,7 +13,6 @@ import ffmpeg
 # Local imports
 import video_processing_utils
 import video_processing_utils.utils
-from video_processing_utils.convert_video import ACCEPTED_EXTENSIONS
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -36,128 +34,6 @@ def walk_files(base_path='.') -> list[str]:
             file_list.append(f"{os.path.join(root,curr_file)}")
 
     return file_list
-
-### CLI video duplicate finder functions
-#
-# Goal: scan a media library and flag videos that are duplicates of each
-# other in content, even when they differ in resolution, container,
-# bitrate, codec, or other re-encode artifacts (e.g. the same movie kept
-# as both a 480p and a 1080p rip).
-#
-# Planned approach:
-#   1. Walk `args.path` (optionally recursively) and filter to files with
-#      a recognised video extension (`ACCEPTED_EXTENSIONS`).
-#   2. Perceptually hash each video's visual content, independent of its
-#      resolution/bitrate/codec, using the `videohash` package (already a
-#      project dependency - see `videohash.VideoHash`).
-#   3. Compare hashes pairwise using Hamming distance
-#      (`VideoHash.hamming_distance` / `.is_similar`) against
-#      `args.threshold` and group files whose distance falls under it.
-#   4. Report the duplicate groups (paths + resolution/size of each member)
-#      so the user can decide which copies to keep.
-#
-# None of the hashing/comparison logic is implemented yet - this is just
-# the CLI scaffold (argument parsing, file discovery, logging) so the
-# `vudupcheck` entry point is functional and the interface is settled.
-
-def video_dup_finder_create_parser() -> argparse.ArgumentParser:
-    """Arg handler for the video duplicate finder CLI.
-
-    Returns:
-        argparse.ArgumentParser: Parser configured with the finder's options.
-    """
-    parser = argparse.ArgumentParser(
-        description=(
-            "Scan a media library for duplicate videos - the same content "
-            "stored at different resolutions, bitrates, containers or codecs."
-        ),
-    )
-    parser.add_argument(
-        '--path',
-        type=pathlib.Path,
-        default='.',
-        help="Path to the media library to scan (default: %(default)s)",
-    )
-    parser.add_argument(
-        '-r', '--recursive',
-        action='store_true',
-        default=False,
-        help="Recurse into subdirectories of --path",
-    )
-    parser.add_argument(
-        '--frame-interval',
-        type=float,
-        default=1.0,
-        help="Frames sampled per second of video when hashing (passed to " +
-            "videohash); lower values are faster but less precise " +
-            "(default: %(default)s)",
-    )
-    parser.add_argument(
-        '--threshold',
-        type=int,
-        default=8,
-        help="Maximum Hamming distance between two video hashes for them " +
-            "to be considered duplicates (default: %(default)s)",
-    )
-    video_processing_utils.utils.add_common_arguments(parser=parser)
-
-    return parser
-
-def video_dup_finder_parse_cli() -> argparse.Namespace:
-    """Return the parsed cli arguments for the video duplicate finder.
-
-    Returns:
-        argparse.Namespace: Parsed arguments.
-    """
-    parser = video_dup_finder_create_parser()
-    args = parser.parse_args()
-
-    return args
-
-def video_dup_finder_scan(base_path: str, recursive: bool) -> list[str]:
-    """Find candidate video files to hash and compare.
-
-    Args:
-        base_path (str): Path to scan.
-        recursive (bool): Recurse into subdirectories if True, otherwise
-            only scan `base_path` itself.
-
-    Returns:
-        list[str]: Video files found, filtered to `ACCEPTED_EXTENSIONS`.
-    """
-    if recursive:
-        candidates = walk_files(base_path)
-    else:
-        candidates = [
-            os.path.join(base_path, curr_file)
-            for curr_file in os.listdir(base_path)
-        ]
-
-    return sorted(
-        curr_file for curr_file in candidates
-        if os.path.isfile(curr_file) and
-            curr_file.rsplit('.', 1)[-1].lower() in ACCEPTED_EXTENSIONS
-    )
-
-def video_dup_finder() -> None:
-    """CLI entry point for vudupcheck.
-
-    Currently a scaffold: discovers candidate video files under `--path`
-    but does not yet hash or compare them - see the module notes above for
-    the planned approach.
-    """
-    args = video_dup_finder_parse_cli()
-    video_processing_utils.utils.setup_logging(args=args)
-    logger.debug(f"Parsed arguments: {pprint.pformat(args)}")
-
-    file_list = video_dup_finder_scan(str(args.path), args.recursive)
-    logger.info(f"Found {len(file_list)} candidate video file(s) under '{args.path}'")
-
-    logger.warning(
-        "Duplicate detection (hashing + comparison) is not implemented yet - " +
-        "this is currently just a scaffold. See the module docstring in " +
-        "cli.py for the planned approach."
-    )
 
 ### CLI concat functions
 

@@ -42,6 +42,6 @@ vucheck     = "video_processing_utils.check_media:main"
 vuconcat    = "video_processing_utils.cli:cli_concat_main"
 vucontainer = "video_processing_utils.convert_container:main"
 vuconvert   = "video_processing_utils.convert_video:main"
-vudupcheck  = "video_processing_utils.cli:video_dup_finder"
+vudupcheck  = "video_processing_utils.dup_finder:main"
 
 
