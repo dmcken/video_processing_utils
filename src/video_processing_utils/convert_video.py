@@ -217,7 +217,8 @@ def read_total_frames(input_filename: str, full_metadata: dict, video_streams_da
 
 
 def transcode_file_ffmpeg(input_filename: str, output_filename: str,
-                          video_codec: str='libx265', audio_codec: str='aac'
+                          video_codec: str='libx265', audio_codec: str='aac',
+                          best_effort: bool=False,
                           ) -> None:
     """Handle transcoding a single file (using the ffmpeg module).
 
@@ -228,6 +229,13 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         output_filename (str): Output filename to transcode to.
         video_codec (str, optional): Video codec for output. Defaults to 'libx265'.
         audio_codec (str, optional): Audio codec for output. Defaults to 'aac'.
+        best_effort (bool, optional): If the video and audio can't both be
+            carried over, drop the audio and keep just the video rather than
+            skipping the file entirely (e.g. some old AVI files have an audio
+            codec ffmpeg can neither decode nor stream-copy). This is lossy
+            and irreversible once the original is deleted, so it defaults to
+            False - the file is skipped (original left untouched) unless
+            explicitly opted into. Defaults to False.
 
     Raises:
         SkipFile: Raised if the input file is missing.
@@ -385,49 +393,72 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
 
         transcode_cmd.execute()
 
-    primary_output_options = {
-        # Catch-all for an extra streams, for those just copy
-        'c':       'copy',      # Copy streams by default
-        'codec:v': video_codec, # Transcode video to specified format
-        'codec:a': audio_codec, # Transcode audio to specified format
-        'codec:s': 'copy',      # Copy the subtitles
-        **extra_params,         # Any extra parameters
-        'dn':      None,        # Ignore the data streams (most seem to be
-                                #  "ffmpeg GPAC ISO Hint Handler")
-    }
-
-    try:
-        run_transcode(primary_output_options, map_spec=['0'])
-    except ffmpeg.FFmpegFileNotFound as exc:
-        raise SkipFile(f"Input file '{input_filename}' is missing") from exc
-    except ffmpeg.FFmpegInvalidCommand as exc:
-        raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
-    except ffmpeg.FFmpegError as exc:
-        logger.warning(
-            f"Primary transcode of '{input_filename}' failed ({exc}), " +
-            "retrying with a best-effort fallback (video/audio streams only, no filters)."
-        )
-        # Fall back to the simplest possible re-encode: just the primary video and
-        # audio streams, fully re-encoded, dropping anything else (subtitles, cover
-        # art, data streams) that could be tripping up the primary attempt.
-        fallback_output_options = {
+    # Attempted in order, each one dropping more of the input in an attempt to
+    # get *something* usable out rather than nothing:
+    #   1. primary: smart copy - transcode video, copy everything else.
+    #   2. fallback: re-encode video and audio only, no filters/extra streams
+    #      (in case something about the "copy" streams is tripping ffmpeg up).
+    #   3. video-only fallback: drop audio entirely (in case the audio stream
+    #      uses a codec ffmpeg can neither decode nor stream-copy - seen in
+    #      the wild with old AVI files using obscure/unsupported codecs). Only
+    #      attempted when best_effort is True - it's lossy, and the caller
+    #      deletes the original on success, so this needs an explicit opt-in
+    #      rather than happening silently to a file that might be sentimental.
+    attempts = [
+        ("primary", {
+            # Catch-all for an extra streams, for those just copy
+            'c':       'copy',      # Copy streams by default
+            'codec:v': video_codec, # Transcode video to specified format
+            'codec:a': audio_codec, # Transcode audio to specified format
+            'codec:s': 'copy',      # Copy the subtitles
+            **extra_params,         # Any extra parameters
+            'dn':      None,        # Ignore the data streams (most seem to be
+                                    #  "ffmpeg GPAC ISO Hint Handler")
+        }, ['0']),
+        ("fallback (video/audio streams only, no filters)", {
             'codec:v': video_codec,
             'codec:a': audio_codec,
-        }
+        }, ['0:v:0', '0:a:0?']),
+    ]
+    if best_effort:
+        attempts.append((
+            "video-only fallback (audio stream could not be read)", {
+                'codec:v': video_codec,
+            }, ['0:v:0'],
+        ))
+
+    errors = []
+    for description, output_options, map_spec in attempts:
         try:
-            run_transcode(fallback_output_options, map_spec=['0:v:0', '0:a:0?'])
-        except ffmpeg.FFmpegError as fallback_exc:
-            # Save as much of the output so the situation can be investigated effectively.
-            with open(f'{input_filename}.err','w', encoding='utf-8') as f:
-                f.write(
-                    f"Primary args:\n{exc.arguments}\n" +
-                    f"Primary CLI:\n{' '.join(exc.arguments)}\n" +
-                    f"Primary stderr:\n{exc.message}\n\n" +
-                    f"Fallback args:\n{fallback_exc.arguments}\n" +
-                    f"Fallback CLI:\n{' '.join(fallback_exc.arguments)}\n" +
-                    f"Fallback stderr:\n{fallback_exc.message}"
+            if errors:
+                logger.warning(
+                    f"Transcode of '{input_filename}' failed, retrying: {description}."
                 )
-            raise fallback_exc from exc
+            run_transcode(output_options, map_spec=map_spec)
+            return
+        except ffmpeg.FFmpegFileNotFound as exc:
+            raise SkipFile(f"Input file '{input_filename}' is missing") from exc
+        except ffmpeg.FFmpegInvalidCommand as exc:
+            raise RuntimeError(f"Invalid ffmpeg command: {exc}") from exc
+        except ffmpeg.FFmpegError as exc:
+            errors.append((description, exc))
+
+    # Every attempt failed - save as much as possible so the situation can be
+    # investigated effectively.
+    if not best_effort:
+        logger.error(
+            f"'{input_filename}' could not be transcoded with audio intact; " +
+            "skipping (original left untouched). Pass --best-effort/-b to " +
+            "allow dropping unreadable audio and keeping the video-only."
+        )
+    with open(f'{input_filename}.err', 'w', encoding='utf-8') as f:
+        for description, exc in errors:
+            f.write(
+                f"{description} args:\n{exc.arguments}\n" +
+                f"{description} CLI:\n{' '.join(exc.arguments)}\n" +
+                f"{description} stderr:\n{exc.message}\n\n"
+            )
+    raise errors[-1][1] from errors[0][1]
 
 def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = True, ) -> int:
     '''
@@ -470,6 +501,7 @@ def process_file(filename: str, args: argparse.Namespace, delete_orig: bool = Tr
             filename, new_file_name,
             video_codec=ffmpeg_utils.codec_map[args.video_codec]['codec'],
             audio_codec=args.audio,
+            best_effort=args.best_effort,
         )
 
         size_old = os.path.getsize(filename)
@@ -580,7 +612,14 @@ def parse_args():
         default='aac',
         help='Video codec to use (default: %(default)s)',
     )
-    parser.set_defaults(recursive=False)
+    parser.add_argument(
+        '-b', '--best-effort',
+        action='store_true',
+        help='If a file\'s audio can\'t be read or carried over, drop it and ' +
+            'keep just the video instead of skipping the file. Lossy and ' +
+            'irreversible once the original is deleted, so off by default.',
+    )
+    parser.set_defaults(recursive=False, best_effort=False)
 
     prog_args = parser.parse_args()
 
