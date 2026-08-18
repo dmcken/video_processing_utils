@@ -243,10 +243,18 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
     """
     full_metadata = ffmpeg_utils.fetch_file_data(input_filename)
     logger.debug(pprint.pformat(full_metadata))
+    # Real video streams only - excludes attached pictures (embedded cover
+    # art), which are typically (but not always) mjpeg. Excluding all mjpeg
+    # streams unconditionally was wrong: some files' actual video track is
+    # itself mjpeg-encoded (e.g. old webcam/capture AVI files), and that was
+    # being dropped entirely, leaving this list empty and crashing everything
+    # downstream that assumes video_streams_data[0] exists.
     video_streams_data = list(filter(
-        lambda x: x['codec_type'] == 'video' and x['codec_name'] != 'mjpeg',
+        lambda x: x['codec_type'] == 'video' and x['disposition']['attached_pic'] == 0,
         full_metadata['streams']
     ))
+    if not video_streams_data:
+        raise SkipFile(f"No (non-attached-picture) video stream found in '{input_filename}'")
     total_frames = read_total_frames(input_filename, full_metadata, video_streams_data)
     try:
         source_duration_seconds = float(full_metadata['format']['duration'])
@@ -254,13 +262,7 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
         source_duration_seconds = None
 
     # Fetch the video_formats
-    video_formats = list(map(
-        lambda x: x['codec_name'],
-        filter(
-            lambda x: x['disposition']['attached_pic'] == 0,
-            video_streams_data,
-        ),
-    ))
+    video_formats = list(map(lambda x: x['codec_name'], video_streams_data))
 
     # Detect embedded images
     extra_params = {}
