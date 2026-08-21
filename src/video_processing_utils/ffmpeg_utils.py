@@ -306,13 +306,18 @@ title={chapter_name}
         try:
             cmd.execute()
         except ffmpeg.errors.FFmpegError as exception:
+            if print_progress:
+                # The progress line above ends with '\r', not '\n' - print a
+                # bare newline first so the error below doesn't overwrite its
+                # front and leave its tail visible.
+                print(flush=True)
             logger.error(f"A FFMpeg error has occured: {exception.__class__.__name__}")
             logger.error(f"- Message from ffmpeg: {exception.message}")
             logger.error(f"- Arguments to execute ffmpeg: {exception.arguments}")
             raise
 
         if print_progress:
-            print()
+            print(flush=True)
 
         if delete_input:
             # Only delete the inputs once we know the concat actually produced

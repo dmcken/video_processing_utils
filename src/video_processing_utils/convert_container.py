@@ -92,10 +92,16 @@ def process_dir(base_path: str = '.', recursive: bool = False,
 
         @ffmpeg_run.on("terminated")
         def on_terminated():
+            # The progress line above ends with '\r', not '\n' - print a bare
+            # newline first so this doesn't overwrite its front and leave its
+            # tail visible. on_terminated/on_completed fire from inside
+            # execute(), before our own code below gets a chance to.
+            print(flush=True)
             logger.error(f"Terminated before conversion of '{curr_file}' finished")
 
         @ffmpeg_run.on("completed")
         def on_completed():
+            print(flush=True)
             logger.info(f"Deleting: {curr_file}")
             os.remove(curr_file)
 
@@ -104,6 +110,7 @@ def process_dir(base_path: str = '.', recursive: bool = False,
         try:
             ffmpeg_run.execute()
         except ffmpeg.errors.FFmpegError as exc:
+            print(flush=True)
             logger.error(f"Failed to convert '{curr_file}': {exc}")
             if os.path.exists(out_file) and os.path.getsize(out_file) == 0:
                 logger.error(f"Deleting zero length output: {out_file}")

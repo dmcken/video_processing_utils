@@ -384,16 +384,22 @@ def transcode_file_ffmpeg(input_filename: str, output_filename: str,
                 end="\r", flush=True,
             )
 
-        # @transcode_cmd.on("completed")
-        # def on_completed():
-        #     # The final status line will remain
-        #     print()
-
         @transcode_cmd.on("terminated")
         def on_terminated():
+            # The progress line above ends with '\r', not '\n' - print a bare
+            # newline first so this doesn't overwrite its front and leave its
+            # tail visible. on_terminated fires from inside execute(), before
+            # our own code below gets a chance to.
+            print(flush=True)
             logger.error("terminated before coversion finished")
 
-        transcode_cmd.execute()
+        try:
+            transcode_cmd.execute()
+        except ffmpeg.FFmpegError:
+            print(flush=True)
+            raise
+        else:
+            print(flush=True)
 
     # Attempted in order, each one dropping more of the input in an attempt to
     # get *something* usable out rather than nothing:
